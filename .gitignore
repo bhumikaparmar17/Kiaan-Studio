@@ -1,0 +1,41 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Node.js
+node_modules/
+dist/
+dist-ssr/
+build/
+coverage/
+*.local
+
+# Python AI Engine
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+ai-engine/models/
+ai-engine/outputs/
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+
+# Generated Files
+uploads/
+storage/
+temp/
+logs/
+*.log
+*.tmp
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

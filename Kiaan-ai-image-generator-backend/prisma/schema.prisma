@@ -1,0 +1,428 @@
+// Kiaan Studio — Canonical Prisma Schema
+// Target Engine: MySQL 8.0+ / MariaDB (InnoDB, utf8mb4)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// 1. IDENTITY & ACCESS CONTROL (RBAC)
+// =============================================================================
+
+enum Role {
+  CREATOR
+  SUPPORT_AGENT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+model User {
+  id           String       @id @default(uuid()) @db.VarChar(36)
+  email        String       @unique @db.VarChar(255)
+  passwordHash String       @db.VarChar(255)
+  fullName     String       @db.VarChar(100)
+  role         Role         @default(CREATOR)
+  status       UserStatus   @default(ACTIVE)
+  avatarUrl    String?      @db.VarChar(512)
+  bio          String?      @db.Text
+  createdAt    DateTime     @default(now()) @db.DateTime(3)
+  updatedAt    DateTime     @updatedAt @db.DateTime(3)
+
+  refreshTokens  RefreshToken[]
+  apiKeys        ApiKey[]
+  wallet         CreditWallet?
+  subscriptions  Subscription[]
+  invoices       Invoice[]
+  generationJobs GenerationJob[]
+  assets         GeneratedAsset[]
+  projects       Project[]
+  downloads      DownloadRecord[]
+  supportTickets SupportTicket[]
+  ticketMessages TicketMessage[]
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.VarChar(36)
+  userId    String    @db.VarChar(36)
+  tokenHash String    @db.VarChar(255)
+  expiresAt DateTime  @db.DateTime(3)
+  revokedAt DateTime? @db.DateTime(3)
+  createdAt DateTime  @default(now()) @db.DateTime(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model ApiKey {
+  id         String    @id @default(uuid()) @db.VarChar(36)
+  userId     String    @db.VarChar(36)
+  name       String    @db.VarChar(100)
+  keyHash    String    @db.VarChar(255)
+  lastUsedAt DateTime? @db.DateTime(3)
+  createdAt  DateTime  @default(now()) @db.DateTime(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("api_keys")
+}
+
+// =============================================================================
+// 2. FINANCIALS, WALLETS & SUBSCRIPTIONS
+// =============================================================================
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  REFUND
+  BONUS
+  ADJUSTMENT
+}
+
+enum TransactionCategory {
+  IMAGE_GENERATION
+  VIDEO_GENERATION
+  PLAN_ALLOWANCE
+  TOPUP_PACK
+  ADMIN_GRANT
+  REFUND
+}
+
+model CreditWallet {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  userId          String   @unique @db.VarChar(36)
+  balance         Int      @default(25) // Initial welcome credits
+  reservedBalance Int      @default(0)
+  updatedAt       DateTime @updatedAt @db.DateTime(3)
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions CreditTransaction[]
+
+  @@map("credit_wallets")
+}
+
+model CreditTransaction {
+  id          String              @id @default(uuid()) @db.VarChar(36)
+  walletId    String              @db.VarChar(36)
+  amount      Int
+  type        TransactionType
+  category    TransactionCategory
+  description String              @db.VarChar(255)
+  referenceId String?             @db.VarChar(64)
+  createdAt   DateTime            @default(now()) @db.DateTime(3)
+
+  wallet CreditWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, createdAt])
+  @@map("credit_transactions")
+}
+
+model SubscriptionPlan {
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  slug               String   @unique @db.VarChar(50)
+  name               String   @db.VarChar(100)
+  priceMonthly       Decimal  @db.Decimal(10, 2)
+  priceAnnual        Decimal  @db.Decimal(10, 2)
+  monthlyCredits     Int
+  maxConcurrentJobs  Int      @default(1)
+  featuresJson       Json
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now()) @db.DateTime(3)
+  updatedAt          DateTime @updatedAt @db.DateTime(3)
+
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+model Subscription {
+  id                 String             @id @default(uuid()) @db.VarChar(36)
+  userId             String             @db.VarChar(36)
+  planId             String             @db.VarChar(36)
+  status             SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart DateTime           @db.DateTime(3)
+  currentPeriodEnd   DateTime           @db.DateTime(3)
+  cancelAtPeriodEnd  Boolean            @default(false)
+  createdAt          DateTime           @default(now()) @db.DateTime(3)
+  updatedAt          DateTime           @updatedAt @db.DateTime(3)
+
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([planId])
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  userId      String   @db.VarChar(36)
+  invoiceNumber String @unique @db.VarChar(64)
+  amount      Decimal  @db.Decimal(10, 2)
+  status      String   @default("PAID") @db.VarChar(32)
+  description String   @db.VarChar(255)
+  receiptUrl  String?  @db.VarChar(512)
+  createdAt   DateTime @default(now()) @db.DateTime(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("invoices")
+}
+
+// =============================================================================
+// 3. GENERATION JOBS & ASSETS
+// =============================================================================
+
+enum GenerationType {
+  TEXT_TO_IMAGE
+  TEXT_TO_VIDEO
+  IMAGE_TO_IMAGE
+  IMAGE_EDITOR
+  IMAGE_TO_VIDEO
+}
+
+enum JobStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+model GenerationJob {
+  id             String         @id @default(uuid()) @db.VarChar(36)
+  userId         String         @db.VarChar(36)
+  type           GenerationType
+  status         JobStatus      @default(PENDING)
+  modelId        String         @db.VarChar(50)
+  prompt         String         @db.Text
+  negativePrompt String?        @db.Text
+  parametersJson Json
+  creditCost     Int
+  workerNodeId   String?        @db.VarChar(64)
+  executionTimeMs Int?
+  errorMessage   String?        @db.Text
+  createdAt      DateTime       @default(now()) @db.DateTime(3)
+  completedAt    DateTime?      @db.DateTime(3)
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets GeneratedAsset[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("generation_jobs")
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model GeneratedAsset {
+  id            String    @id @default(uuid()) @db.VarChar(36)
+  jobId         String    @db.VarChar(36)
+  userId        String    @db.VarChar(36)
+  projectId     String?   @db.VarChar(36)
+  mediaType     MediaType
+  storagePath   String    @db.VarChar(512)
+  thumbnailPath String?   @db.VarChar(512)
+  fileSizeBytes BigInt
+  dimensions    String    @db.VarChar(32)
+  isFavorite    Boolean   @default(false)
+  deletedAt     DateTime? @db.DateTime(3)
+  createdAt     DateTime  @default(now()) @db.DateTime(3)
+
+  job     GenerationJob    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  downloads DownloadRecord[]
+
+  @@index([userId, deletedAt, isFavorite])
+  @@index([projectId])
+  @@map("generated_assets")
+}
+
+model Project {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  userId      String   @db.VarChar(36)
+  name        String   @db.VarChar(120)
+  client      String?  @db.VarChar(120)
+  colorTag    String   @default("cyan") @db.VarChar(30)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @db.DateTime(3)
+  updatedAt   DateTime @updatedAt @db.DateTime(3)
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets GeneratedAsset[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model DownloadRecord {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  userId       String   @db.VarChar(36)
+  assetId      String   @db.VarChar(36)
+  format       String   @db.VarChar(16)
+  downloadedAt DateTime @default(now()) @db.DateTime(3)
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset GeneratedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([userId, downloadedAt])
+  @@map("download_records")
+}
+
+// =============================================================================
+// 4. INFRASTRUCTURE & MONITORING
+// =============================================================================
+
+model AiModel {
+  id             String    @id @db.VarChar(50)
+  name           String    @db.VarChar(100)
+  type           MediaType
+  baseCreditCost Int
+  defaultSteps   Int
+  recommendedCfg Decimal   @db.Decimal(3, 1)
+  vramRequiredGb Int
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.DateTime(3)
+  updatedAt      DateTime  @updatedAt @db.DateTime(3)
+
+  @@map("ai_models")
+}
+
+enum NodeStatus {
+  ONLINE
+  BUSY
+  DRAINING
+  OFFLINE
+}
+
+model GpuNode {
+  id              String     @id @db.VarChar(50)
+  name            String     @db.VarChar(100)
+  ipAddress       String     @db.VarChar(45)
+  gpuModel        String     @db.VarChar(100)
+  totalVramGb     Int
+  usedVramGb      Int        @default(0)
+  status          NodeStatus @default(ONLINE)
+  lastHeartbeatAt DateTime   @db.DateTime(3)
+  createdAt       DateTime   @default(now()) @db.DateTime(3)
+
+  @@map("gpu_nodes")
+}
+
+model SupportTicket {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  userId    String   @db.VarChar(36)
+  category  String   @db.VarChar(64)
+  subject   String   @db.VarChar(255)
+  priority  String   @default("NORMAL") @db.VarChar(32)
+  status    String   @default("OPEN") @db.VarChar(32)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+
+  @@index([userId])
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  ticketId  String   @db.VarChar(36)
+  senderId  String   @db.VarChar(36)
+  message   String   @db.Text
+  createdAt DateTime @default(now()) @db.DateTime(3)
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  actorId      String   @db.VarChar(36)
+  action       String   @db.VarChar(64)
+  targetEntity String   @db.VarChar(64)
+  targetId     String?  @db.VarChar(64)
+  ipAddress    String?  @db.VarChar(45)
+  diffJson     Json?
+  createdAt    DateTime @default(now()) @db.DateTime(3)
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([actorId, action])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  key       String   @unique @db.VarChar(100)
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+
+  @@map("system_settings")
+}
+
+// =============================================================================
+// 6. ENTERPRISE ARCHITECTURE INQUIRIES
+// =============================================================================
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+model EnterpriseInquiry {
+  id           String        @id @default(uuid()) @db.VarChar(36)
+  userId       String?       @db.VarChar(36)
+  fullName     String        @db.VarChar(120)
+  email        String        @db.VarChar(191)
+  companyName  String        @db.VarChar(191)
+  phone        String?       @db.VarChar(50)
+  companySize  String        @db.VarChar(50)
+  service      String        @db.VarChar(100)
+  monthlyUsage String        @db.VarChar(100)
+  message      String        @db.Text
+  status       InquiryStatus @default(NEW)
+  notes        String?       @db.Text
+  ipAddress    String?       @db.VarChar(45)
+  createdAt    DateTime      @default(now()) @db.DateTime(3)
+  updatedAt    DateTime      @updatedAt @db.DateTime(3)
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@map("enterprise_inquiries")
+}
