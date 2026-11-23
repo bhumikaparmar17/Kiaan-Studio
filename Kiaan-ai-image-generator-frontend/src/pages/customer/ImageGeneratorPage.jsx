@@ -291,6 +291,7 @@ export function ImageGeneratorPage() {
 
   // Handle Generate
   const handleGenerate = async () => {
+    if (isGenerating) return
     setGenerationError(null)
     const finalPrompt = prompt.trim() || PROMPT_INSPIRATIONS[Math.floor(Math.random() * PROMPT_INSPIRATIONS.length)]
     if (!prompt.trim()) {
@@ -454,7 +455,8 @@ export function ImageGeneratorPage() {
         return
       }
       if (err.response?.status === 503) {
-        const msg = err.response?.data?.error || 'AI inference service is currently offline. No credits were deducted.'
+        const rawError = err.response?.data?.error
+        const msg = (typeof rawError === 'string' ? rawError : rawError?.message) || 'AI inference service is currently offline. No credits were deducted.'
         setGenerationError({
           isFlagged: false,
           message: msg,
@@ -462,7 +464,8 @@ export function ImageGeneratorPage() {
         })
         return
       }
-      const errMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Generation request failed.'
+      const rawError = err.response?.data?.error
+      const errMsg = (typeof rawError === 'string' ? rawError : rawError?.message) || err.response?.data?.message || err.message || 'Generation request failed.'
       setGenerationError({
         isFlagged: /flagged|safety/i.test(errMsg),
         message: errMsg,
@@ -552,7 +555,7 @@ export function ImageGeneratorPage() {
                   <div className="font-semibold text-sm flex items-center gap-2">
                     {generationError.isFlagged ? 'AI Output Moderation Notice' : 'Generation Error'}
                   </div>
-                  <p className="leading-relaxed opacity-90">{generationError.message}</p>
+                  <p className="leading-relaxed opacity-90">{typeof generationError.message === 'string' ? generationError.message : (generationError.message?.message || JSON.stringify(generationError.message))}</p>
                   {generationError.suggestion && (
                     <p className="text-[11px] text-amber-300 font-medium pt-1">
                       💡 <strong>Suggestion:</strong> {generationError.suggestion}

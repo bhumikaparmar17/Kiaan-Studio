@@ -1,6 +1,8 @@
 import { prisma } from '../../config/database.js'
 import { CreditsService } from '../credits/credits.service.js'
 import { AssetsService } from '../assets/assets.service.js'
+import { WorkerService } from './worker.service.js'
+import { processAndSaveReferenceImage } from '../../utils/imageValidator.js'
 
 const VALID_TYPES = [
   'TEXT_TO_IMAGE',
@@ -49,6 +51,57 @@ export class GenerationService {
   }
 
   /**
+   * Safely sweep orphaned/stuck jobs that exceeded normal execution timeouts.
+   * Performs idempotent status updates and refunds reserved credits.
+   * Never expires actively running valid jobs within their operational window.
+   */
+  static async cleanupStuckJobs(targetUserId = null) {
+    try {
+      const now = Date.now()
+      const imageCutoff = new Date(now - 5 * 60 * 1000) // 5 minutes for image jobs
+      const videoCutoff = new Date(now - 15 * 60 * 1000) // 15 minutes for video jobs
+
+      const whereClause = {
+        status: { in: ['QUEUED', 'PROCESSING'] },
+        OR: [
+          {
+            type: { in: ['TEXT_TO_IMAGE', 'IMAGE_TO_IMAGE', 'IMAGE_EDITOR'] },
+            createdAt: { lte: imageCutoff }
+          },
+          {
+            type: { in: ['TEXT_TO_VIDEO', 'IMAGE_TO_VIDEO'] },
+            createdAt: { lte: videoCutoff }
+          }
+        ]
+      }
+
+      if (targetUserId) {
+        whereClause.userId = targetUserId
+      }
+
+      const stuckJobs = await prisma.generationJob.findMany({
+        where: whereClause,
+        take: 50
+      })
+
+      for (const stuckJob of stuckJobs) {
+        const ageSec = Math.round((now - new Date(stuckJob.createdAt).getTime()) / 1000)
+        try {
+          await WorkerService.failJob(stuckJob.id, {
+            workerNodeId: 'system-queue-watchdog',
+            errorMessage: `Job timed out after ${ageSec}s without completion. Your reserved credits have been fully restored.`,
+            executionTimeMs: ageSec * 1000
+          })
+        } catch {
+          // WorkerService.failJob is idempotent; ignore alreadyResolved
+        }
+      }
+    } catch {
+      // Non-blocking cleanup failure
+    }
+  }
+
+  /**
    * Submit and enqueue a new generation job with atomic credit reservation
    */
   static async createJob(userId, { type, modelId, prompt, negativePrompt, parameters = {}, projectId = null }) {
@@ -72,6 +125,21 @@ export class GenerationService {
       error.statusCode = 400
       error.code = 'VALIDATION_ERROR'
       throw error
+    }
+
+    // For IMAGE_TO_IMAGE, validate and persist reference image
+    if (normalizedType === 'IMAGE_TO_IMAGE') {
+      const rawImage = parameters.referenceImage || parameters.inputImage || parameters.sourceImage
+      if (!rawImage) {
+        const error = new Error('Reference image is required for Image-to-Image generation.')
+        error.statusCode = 400
+        error.code = 'VALIDATION_ERROR'
+        throw error
+      }
+      const savedRef = processAndSaveReferenceImage(rawImage, userId)
+      parameters.referenceImage = savedRef.storagePath
+      parameters.referenceDimensions = `${savedRef.width}x${savedRef.height}`
+      parameters.referenceMimeType = savedRef.mimeType
     }
 
     const assignedModel = modelId || (normalizedType.includes('VIDEO') ? 'wan-2.1-video-720p' : 'flux-2-klein-4b')
@@ -98,6 +166,9 @@ export class GenerationService {
       error.code = 'WORKER_UNAVAILABLE'
       throw error
     }
+
+    // Automatically sweep orphaned/stuck jobs for this user before evaluating concurrency
+    await GenerationService.cleanupStuckJobs(userId)
 
     // Check concurrency limit against active subscription
     const sub = await prisma.subscription.findFirst({

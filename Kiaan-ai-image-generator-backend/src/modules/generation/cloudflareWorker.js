@@ -1,8 +1,10 @@
 import { WorkerService } from './worker.service.js'
+import { GenerationService } from './generation.service.js'
 import { CloudflareAiService, CLOUDFLARE_MODELS } from './cloudflareAi.service.js'
+import { WavespeedAiService } from './wavespeedAi.service.js'
 import { logger } from '../../utils/logger.js'
 
-const SUPPORTED_MODELS = Object.keys(CLOUDFLARE_MODELS)
+const SUPPORTED_MODELS = [...Object.keys(CLOUDFLARE_MODELS), 'z-image-turbo', 'flux-depth-canny']
 const WORKER_NODE_ID = process.env.WORKER_NODE_ID || 'cloudflare-worker-local-1'
 
 let isDaemonRunning = false
@@ -29,22 +31,76 @@ export class CloudflareWorkerDaemon {
     }
 
     try {
-      // Step 1: Report progress - Initializing
-      await WorkerService.reportProgress(job.id, {
-        workerNodeId: WORKER_NODE_ID,
-        progressPercent: 20,
-        currentStep: 1,
-        totalSteps: 4,
-        statusMessage: `Connecting to Cloudflare Workers AI (${job.modelId})...`
-      })
+      let result
 
-      // Step 2: Call Cloudflare AI inference
-      const result = await CloudflareAiService.generateImage({
-        modelId: job.modelId,
-        prompt: job.prompt,
-        parameters: params,
-        jobId: job.id
-      })
+      if (job.type === 'IMAGE_TO_IMAGE') {
+        if (job.modelId === 'flux-2-klein-4b') {
+          // Step 1: Report progress - Initializing Cloudflare Img2Img
+          await WorkerService.reportProgress(job.id, {
+            workerNodeId: WORKER_NODE_ID,
+            progressPercent: 20,
+            currentStep: 1,
+            totalSteps: 4,
+            statusMessage: 'Connecting to Cloudflare Workers AI (FLUX.2 Klein Img2Img)...'
+          })
+
+          // Step 2: Call Cloudflare AI Image-to-Image inference
+          result = await CloudflareAiService.generateImageToImage({
+            prompt: job.prompt,
+            referenceImagePath: params.referenceImage,
+            parameters: params,
+            jobId: job.id
+          })
+        } else if (job.modelId === 'z-image-turbo') {
+          throw new Error(`[WaveSpeed AI Error] Image-to-Image transformation on '${job.modelId}' is currently under development. Please select FLUX.2 Klein (Flow Match).`)
+        } else if (job.modelId === 'flux-depth-canny') {
+          throw new Error(`[Cloudflare AI Error] Model '${job.modelId}' is currently under development. Please select FLUX.2 Klein (Flow Match).`)
+        } else {
+          throw new Error(`[Generation Worker Error] Unsupported model '${job.modelId}' for IMAGE_TO_IMAGE.`)
+        }
+      } else if (job.modelId === 'z-image-turbo') {
+        // Step 1: Report progress - Initializing WaveSpeed
+        await WorkerService.reportProgress(job.id, {
+          workerNodeId: WORKER_NODE_ID,
+          progressPercent: 20,
+          currentStep: 1,
+          totalSteps: 4,
+          statusMessage: 'Connecting to WaveSpeed AI (Z-Image Turbo)...'
+        })
+
+        // Step 2: Call WaveSpeed AI inference
+        result = await WavespeedAiService.generateImage({
+          prompt: job.prompt,
+          parameters: params,
+          jobId: job.id,
+          onProgress: async (percent, message) => {
+            await WorkerService.reportProgress(job.id, {
+              workerNodeId: WORKER_NODE_ID,
+              progressPercent: percent,
+              currentStep: 2,
+              totalSteps: 4,
+              statusMessage: message
+            })
+          }
+        })
+      } else {
+        // Step 1: Report progress - Initializing Cloudflare
+        await WorkerService.reportProgress(job.id, {
+          workerNodeId: WORKER_NODE_ID,
+          progressPercent: 20,
+          currentStep: 1,
+          totalSteps: 4,
+          statusMessage: `Connecting to Cloudflare Workers AI (${job.modelId})...`
+        })
+
+        // Step 2: Call Cloudflare AI inference
+        result = await CloudflareAiService.generateImage({
+          modelId: job.modelId,
+          prompt: job.prompt,
+          parameters: params,
+          jobId: job.id
+        })
+      }
 
       // Step 3: Report progress - Finalizing asset
       await WorkerService.reportProgress(job.id, {
@@ -106,6 +162,9 @@ export class CloudflareWorkerDaemon {
    */
   static async pollAndProcessNextJob() {
     try {
+      // Periodically sweep orphaned jobs that exceeded safe timeouts
+      await GenerationService.cleanupStuckJobs()
+
       const job = await WorkerService.claimNextJob({
         workerNodeId: WORKER_NODE_ID,
         supportedTypes: ['TEXT_TO_IMAGE', 'IMAGE_TO_IMAGE'],
@@ -132,8 +191,11 @@ export class CloudflareWorkerDaemon {
       return
     }
 
-    if (!CloudflareAiService.isConfigured()) {
-      logger.warn('[Cloudflare Worker] Cloudflare credentials not set. Daemon will not poll live API.')
+    const hasCloudflare = CloudflareAiService.isConfigured() || CloudflareAiService.isImg2ImgConfigured()
+    const hasWavespeed = WavespeedAiService.isConfigured()
+
+    if (!hasCloudflare && !hasWavespeed) {
+      logger.warn('[Cloudflare Worker] Neither Cloudflare nor WaveSpeed credentials are set. Daemon will not poll live API.')
       return
     }
 
