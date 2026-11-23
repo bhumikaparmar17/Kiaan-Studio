@@ -50,7 +50,7 @@ export function ProfileMenu({ variant = 'customer', theme = 'dark', className = 
   const handleLogout = () => {
     setIsOpen(false)
     logout()
-    navigate('/login')
+    navigate('/')
   }
 
   // If user is logged out, show clean login link

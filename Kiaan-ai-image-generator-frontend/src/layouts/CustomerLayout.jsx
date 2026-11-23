@@ -85,7 +85,7 @@ export function CustomerLayout() {
 
   const handleLogout = () => {
     logout()
-    navigate('/login')
+    navigate('/')
   }
 
   return (

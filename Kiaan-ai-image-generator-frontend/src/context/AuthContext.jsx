@@ -121,9 +121,7 @@ export function AuthProvider({ children }) {
    */
   const logout = async () => {
     try {
-      if (typeof window !== 'undefined' && localStorage.getItem('kiaan_is_mock_session') !== 'true') {
-        await api.post('/auth/logout')
-      }
+      await api.post('/auth/logout')
     } catch {
       // Ignore network errors during logout
     } finally {
