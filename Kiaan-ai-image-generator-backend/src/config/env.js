@@ -1,7 +1,13 @@
 import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-// Load environment variables from .env file
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const backendEnvPath = path.resolve(__dirname, '../../.env')
+
+// Load environment variables from .env file (both default and explicit backend path)
 dotenv.config()
+dotenv.config({ path: backendEnvPath })
 
 /**
  * Validates and exposes environment variables.

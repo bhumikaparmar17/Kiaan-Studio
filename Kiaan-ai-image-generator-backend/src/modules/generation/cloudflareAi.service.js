@@ -29,9 +29,46 @@ const ASPECT_RATIO_MAP = {
 
 export class CloudflareAiService {
   /**
+   * Helper to re-read .env on disk if environment variables were updated after process boot
+   */
+  static _reloadEnvIfMissing() {
+    if (
+      !process.env.CLOUDFLARE_IMG2IMG_ACCOUNT_ID ||
+      !process.env.CLOUDFLARE_IMG2IMG_API_TOKEN ||
+      !process.env.CLOUDFLARE_ACCOUNT_ID ||
+      !process.env.CLOUDFLARE_API_TOKEN
+    ) {
+      try {
+        const candidatePaths = [
+          path.resolve(process.cwd(), '.env'),
+          path.resolve(process.cwd(), 'Kiaan-ai-image-generator-backend', '.env')
+        ]
+        for (const p of candidatePaths) {
+          if (fs.existsSync(p)) {
+            const raw = fs.readFileSync(p, 'utf8')
+            for (const line of raw.split('\n')) {
+              const trimmed = line.trim()
+              if (!trimmed || trimmed.startsWith('#')) continue
+              const eq = trimmed.indexOf('=')
+              if (eq > -1) {
+                const k = trimmed.slice(0, eq).trim()
+                const v = trimmed.slice(eq + 1).trim()
+                if (k && v && !process.env[k]) {
+                  process.env[k] = v
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+
+  /**
    * Check if Cloudflare Text-to-Image credentials are configured in environment
    */
   static isConfigured() {
+    this._reloadEnvIfMissing()
     const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || env.CLOUDFLARE_ACCOUNT_ID
     const token = process.env.CLOUDFLARE_API_TOKEN || env.CLOUDFLARE_API_TOKEN
     return Boolean(accountId && token && accountId.trim() && token.trim())
@@ -41,6 +78,7 @@ export class CloudflareAiService {
    * Get Text-to-Image credentials securely
    */
   static getCredentials() {
+    this._reloadEnvIfMissing()
     const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID || env.CLOUDFLARE_ACCOUNT_ID || '').trim()
     const token = (process.env.CLOUDFLARE_API_TOKEN || env.CLOUDFLARE_API_TOKEN || '').trim()
     if (!accountId || !token) {
@@ -53,6 +91,7 @@ export class CloudflareAiService {
    * Check if separate Cloudflare Image-to-Image credentials are configured
    */
   static isImg2ImgConfigured() {
+    this._reloadEnvIfMissing()
     const accountId = process.env.CLOUDFLARE_IMG2IMG_ACCOUNT_ID || env.CLOUDFLARE_IMG2IMG_ACCOUNT_ID
     const token = process.env.CLOUDFLARE_IMG2IMG_API_TOKEN || env.CLOUDFLARE_IMG2IMG_API_TOKEN
     return Boolean(accountId && token && accountId.trim() && token.trim())
@@ -62,6 +101,7 @@ export class CloudflareAiService {
    * Get Image-to-Image credentials securely (isolated exclusively for Image-to-Image)
    */
   static getImg2ImgCredentials() {
+    this._reloadEnvIfMissing()
     const accountId = (process.env.CLOUDFLARE_IMG2IMG_ACCOUNT_ID || env.CLOUDFLARE_IMG2IMG_ACCOUNT_ID || '').trim()
     const token = (process.env.CLOUDFLARE_IMG2IMG_API_TOKEN || env.CLOUDFLARE_IMG2IMG_API_TOKEN || '').trim()
     if (!accountId || !token) {
