@@ -119,33 +119,30 @@ export function PricingSection() {
             <button
               type="button"
               onClick={() => setBillingCycle('monthly')}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                billingCycle === 'monthly'
-                  ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-neutral-950 shadow-md shadow-cyan-500/30 font-bold ring-1 ring-cyan-300/50'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${billingCycle === 'monthly'
+                ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-neutral-950 shadow-md shadow-cyan-500/30 font-bold ring-1 ring-cyan-300/50'
+                : 'text-neutral-400 hover:text-white'
+                }`}
             >
               Monthly
             </button>
             <button
               type="button"
               onClick={() => setBillingCycle('quarterly')}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                billingCycle === 'quarterly'
-                  ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-neutral-950 shadow-md shadow-cyan-500/30 font-bold ring-1 ring-cyan-300/50'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${billingCycle === 'quarterly'
+                ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-neutral-950 shadow-md shadow-cyan-500/30 font-bold ring-1 ring-cyan-300/50'
+                : 'text-neutral-400 hover:text-white'
+                }`}
             >
               Quarterly
             </button>
             <button
               type="button"
               onClick={() => setBillingCycle('yearly')}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                billingCycle === 'yearly'
-                  ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-neutral-950 shadow-md shadow-cyan-500/30 font-bold ring-1 ring-cyan-300/50'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${billingCycle === 'yearly'
+                ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-neutral-950 shadow-md shadow-cyan-500/30 font-bold ring-1 ring-cyan-300/50'
+                : 'text-neutral-400 hover:text-white'
+                }`}
             >
               Yearly
             </button>
@@ -161,21 +158,19 @@ export function PricingSection() {
               return (
                 <div
                   key={plan.id}
-                  className={`rounded-[18px] sm:rounded-[20px] p-3.5 sm:p-4 flex flex-col justify-between transition-all duration-300 relative h-full ${
-                    isFeatured
-                      ? 'bg-gradient-to-b from-[#13172E] via-[#0E1325] to-[#0A0D1A] text-white ring-2 ring-pink-500/70 border border-pink-400/40 shadow-lg shadow-pink-500/15 lg:-translate-y-1.5'
-                      : 'bg-[#0B0F19]/90 backdrop-blur-md text-white border border-white/10 shadow-md hover:border-cyan-400/40 hover:shadow-[0_4px_20px_rgba(6,182,212,0.15)]'
-                  }`}
+                  className={`rounded-[18px] sm:rounded-[20px] p-3.5 sm:p-4 flex flex-col justify-between transition-all duration-300 relative h-full ${isFeatured
+                    ? 'bg-gradient-to-b from-[#13172E] via-[#0E1325] to-[#0A0D1A] text-white ring-2 ring-pink-500/70 border border-pink-400/40 shadow-lg shadow-pink-500/15 lg:-translate-y-1.5'
+                    : 'bg-[#0B0F19]/90 backdrop-blur-md text-white border border-white/10 shadow-md hover:border-cyan-400/40 hover:shadow-[0_4px_20px_rgba(6,182,212,0.15)]'
+                    }`}
                 >
                   {/* Top Badge for Featured or Enterprise */}
                   {plan.badge && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest font-mono shadow-md ${
-                          isFeatured
-                            ? 'bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white border border-pink-300/50 shadow-pink-500/40'
-                            : 'bg-neutral-900 text-cyan-300 border border-cyan-400/50 shadow-xs'
-                        }`}
+                        className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest font-mono shadow-md ${isFeatured
+                          ? 'bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white border border-pink-300/50 shadow-pink-500/40'
+                          : 'bg-neutral-900 text-cyan-300 border border-cyan-400/50 shadow-xs'
+                          }`}
                       >
                         {plan.badge}
                       </span>
@@ -217,11 +212,10 @@ export function PricingSection() {
                         {plan.features.map((feat) => (
                           <li key={feat} className="flex items-start gap-1.5">
                             <Check
-                              className={`w-3 h-3 shrink-0 mt-0.5 ${
-                                isFeatured
-                                  ? 'text-pink-400 drop-shadow-[0_0_6px_rgba(244,114,182,0.5)]'
-                                  : 'text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.4)]'
-                              }`}
+                              className={`w-3 h-3 shrink-0 mt-0.5 ${isFeatured
+                                ? 'text-pink-400 drop-shadow-[0_0_6px_rgba(244,114,182,0.5)]'
+                                : 'text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.4)]'
+                                }`}
                             />
                             <span className="text-neutral-200 leading-tight">
                               {feat}
@@ -236,11 +230,10 @@ export function PricingSection() {
                   <div className="pt-3 sm:pt-3.5 mt-auto">
                     <Link
                       to={plan.ctaTo}
-                      className={`w-full py-1.5 px-3 rounded-lg font-bold text-xs text-center transition-all flex items-center justify-center gap-1.5 ${
-                        isFeatured
-                          ? 'bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-md shadow-pink-500/25 hover:shadow-pink-500/40 hover:scale-[1.02] active:scale-[0.98]'
-                          : 'bg-neutral-800/90 hover:bg-neutral-700 text-neutral-200 hover:text-white border border-white/15 hover:border-cyan-400/40 shadow-xs transition-all hover:scale-[1.01]'
-                      }`}
+                      className={`w-full py-1.5 px-3 rounded-lg font-bold text-xs text-center transition-all flex items-center justify-center gap-1.5 ${isFeatured
+                        ? 'bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-md shadow-pink-500/25 hover:shadow-pink-500/40 hover:scale-[1.02] active:scale-[0.98]'
+                        : 'bg-neutral-800/90 hover:bg-neutral-700 text-neutral-200 hover:text-white border border-white/15 hover:border-cyan-400/40 shadow-xs transition-all hover:scale-[1.01]'
+                        }`}
                     >
                       <span>{plan.ctaText}</span>
                     </Link>

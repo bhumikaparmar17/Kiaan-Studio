@@ -55,11 +55,10 @@ export function DesktopMegaMenu({
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start">
             {/* Columns Area (Left side) */}
             <div
-              className={`flex-1 min-w-0 grid ${
-                columns.length === 3
-                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-                  : 'grid-cols-1 sm:grid-cols-2'
-              } gap-4 lg:gap-5`}
+              className={`flex-1 min-w-0 grid ${columns.length === 3
+                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                : 'grid-cols-1 sm:grid-cols-2'
+                } gap-4 lg:gap-5`}
             >
               {columns.map((col) => (
                 <div key={col.title} className="space-y-2.5">
@@ -72,28 +71,25 @@ export function DesktopMegaMenu({
                         key={item.name}
                         to={item.to}
                         onClick={onClose}
-                        className={`group block p-2 -mx-2 rounded-xl ${
-                          theme === 'dark'
-                            ? 'hover:bg-white/[0.05]'
-                            : 'hover:bg-neutral-50'
-                        } transition-colors`}
+                        className={`group block p-2 -mx-2 rounded-xl ${theme === 'dark'
+                          ? 'hover:bg-white/[0.05]'
+                          : 'hover:bg-neutral-50'
+                          } transition-colors`}
                       >
                         <div
-                          className={`text-sm font-semibold ${
-                            theme === 'dark'
-                              ? 'text-white group-hover:text-cyan-400'
-                              : 'text-neutral-900 group-hover:text-violet-700'
-                          } transition-colors flex items-center justify-between`}
+                          className={`text-sm font-semibold ${theme === 'dark'
+                            ? 'text-white group-hover:text-cyan-400'
+                            : 'text-neutral-900 group-hover:text-violet-700'
+                            } transition-colors flex items-center justify-between`}
                         >
                           <span className="truncate pr-2">{item.name}</span>
                           <ArrowRight className="w-3.5 h-3.5 text-neutral-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0 ml-1.5" />
                         </div>
                         <p
-                          className={`text-xs ${
-                            theme === 'dark'
-                              ? 'text-neutral-300'
-                              : 'text-neutral-600'
-                          } mt-0.5 line-clamp-2 leading-relaxed`}
+                          className={`text-xs ${theme === 'dark'
+                            ? 'text-neutral-300'
+                            : 'text-neutral-600'
+                            } mt-0.5 line-clamp-2 leading-relaxed`}
                         >
                           {item.desc}
                         </p>
@@ -107,18 +103,16 @@ export function DesktopMegaMenu({
             {/* Featured Card (Right side) */}
             {hasFeatured && (
               <div
-                className={`w-full lg:w-[290px] xl:w-[300px] shrink-0 ${
-                  theme === 'dark'
-                    ? 'lg:border-l lg:border-neutral-800/80'
-                    : 'lg:border-l lg:border-neutral-100'
-                } lg:pl-5 pt-4 lg:pt-0 border-t lg:border-t-0 border-neutral-800/60`}
+                className={`w-full lg:w-[290px] xl:w-[300px] shrink-0 ${theme === 'dark'
+                  ? 'lg:border-l lg:border-neutral-800/80'
+                  : 'lg:border-l lg:border-neutral-100'
+                  } lg:pl-5 pt-4 lg:pt-0 border-t lg:border-t-0 border-neutral-800/60`}
               >
                 <div
-                  className={`rounded-2xl ${
-                    theme === 'dark'
-                      ? 'bg-[#0D111C]/90 border border-neutral-800/80 text-white'
-                      : 'bg-neutral-50/80 border border-neutral-200/70'
-                  } p-3 sm:p-3.5 flex flex-col`}
+                  className={`rounded-2xl ${theme === 'dark'
+                    ? 'bg-[#0D111C]/90 border border-neutral-800/80 text-white'
+                    : 'bg-neutral-50/80 border border-neutral-200/70'
+                    } p-3 sm:p-3.5 flex flex-col`}
                 >
                   {featured.image && (
                     <div className="h-[120px] sm:h-[125px] w-full rounded-xl overflow-hidden mb-2 bg-neutral-900 shadow-xs shrink-0">
@@ -131,27 +125,24 @@ export function DesktopMegaMenu({
                   )}
                   <div className="space-y-1 flex-1 min-w-0">
                     <span
-                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        theme === 'dark'
-                          ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-800/50'
-                          : 'bg-violet-100 text-violet-800'
-                      }`}
+                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${theme === 'dark'
+                        ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-800/50'
+                        : 'bg-violet-100 text-violet-800'
+                        }`}
                     >
                       {featured.tag}
                     </span>
                     <h4
-                      className={`text-sm font-bold ${
-                        theme === 'dark' ? 'text-white' : 'text-neutral-950'
-                      } truncate`}
+                      className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-neutral-950'
+                        } truncate`}
                     >
                       {featured.title}
                     </h4>
                     <p
-                      className={`text-xs ${
-                        theme === 'dark'
-                          ? 'text-neutral-300'
-                          : 'text-neutral-600'
-                      } line-clamp-3 leading-relaxed`}
+                      className={`text-xs ${theme === 'dark'
+                        ? 'text-neutral-300'
+                        : 'text-neutral-600'
+                        } line-clamp-3 leading-relaxed`}
                     >
                       {featured.desc}
                     </p>
@@ -161,11 +152,10 @@ export function DesktopMegaMenu({
                     <Link
                       to={featured.ctaTo}
                       onClick={onClose}
-                      className={`w-full py-2 px-3 rounded-xl text-xs font-bold ${
-                        theme === 'dark'
-                          ? 'bg-gradient-to-r from-pink-500 via-rose-500 to-rose-600 text-white shadow-md shadow-pink-500/20 hover:shadow-pink-500/35 hover:from-pink-600 hover:to-rose-700'
-                          : 'bg-neutral-950 hover:bg-neutral-800 text-white'
-                      } text-center block transition-all active:scale-[0.99]`}
+                      className={`w-full py-2 px-3 rounded-xl text-xs font-bold ${theme === 'dark'
+                        ? 'bg-gradient-to-r from-pink-500 via-rose-500 to-rose-600 text-white shadow-md shadow-pink-500/20 hover:shadow-pink-500/35 hover:from-pink-600 hover:to-rose-700'
+                        : 'bg-neutral-950 hover:bg-neutral-800 text-white'
+                        } text-center block transition-all active:scale-[0.99]`}
                     >
                       {featured.ctaText}
                     </Link>
@@ -173,11 +163,10 @@ export function DesktopMegaMenu({
                       <Link
                         to={featured.linkTo}
                         onClick={onClose}
-                        className={`text-xs text-center font-medium ${
-                          theme === 'dark'
-                            ? 'text-violet-400 hover:text-violet-300'
-                            : 'text-violet-700 hover:text-violet-800'
-                        } block transition-colors`}
+                        className={`text-xs text-center font-medium ${theme === 'dark'
+                          ? 'text-violet-400 hover:text-violet-300'
+                          : 'text-violet-700 hover:text-violet-800'
+                          } block transition-colors`}
                       >
                         {featured.linkText} &rarr;
                       </Link>
@@ -215,41 +204,37 @@ export function MobileMegaMenuAccordion({ onItemClick, theme = 'dark' }) {
         return (
           <div
             key={key}
-            className={`rounded-2xl border ${
-              theme === 'dark'
-                ? 'border-neutral-800/80 bg-neutral-900/50'
-                : 'border-neutral-200/80 bg-neutral-50/50'
-            } overflow-hidden`}
+            className={`rounded-2xl border ${theme === 'dark'
+              ? 'border-neutral-800/80 bg-neutral-900/50'
+              : 'border-neutral-200/80 bg-neutral-50/50'
+              } overflow-hidden`}
           >
             <button
               type="button"
               onClick={() => toggleSection(key)}
-              className={`w-full flex items-center justify-between p-3.5 text-left text-sm font-bold ${
-                theme === 'dark'
-                  ? 'text-white hover:bg-neutral-800/50'
-                  : 'text-neutral-900 hover:bg-neutral-100/80'
-              } transition-colors`}
+              className={`w-full flex items-center justify-between p-3.5 text-left text-sm font-bold ${theme === 'dark'
+                ? 'text-white hover:bg-neutral-800/50'
+                : 'text-neutral-900 hover:bg-neutral-100/80'
+                } transition-colors`}
               aria-expanded={isExpanded}
             >
               <span>{item.label}</span>
               <ChevronDown
-                className={`w-4 h-4 text-neutral-400 transition-transform duration-200 ${
-                  isExpanded
-                    ? theme === 'dark'
-                      ? 'rotate-180 text-cyan-400'
-                      : 'rotate-180 text-violet-600'
-                    : ''
-                }`}
+                className={`w-4 h-4 text-neutral-400 transition-transform duration-200 ${isExpanded
+                  ? theme === 'dark'
+                    ? 'rotate-180 text-cyan-400'
+                    : 'rotate-180 text-violet-600'
+                  : ''
+                  }`}
               />
             </button>
 
             {isExpanded && (
               <div
-                className={`px-3.5 pb-4 pt-1 space-y-4 border-t ${
-                  theme === 'dark'
-                    ? 'border-neutral-800/80 bg-[#0B0F19]'
-                    : 'border-neutral-200/60 bg-white'
-                }`}
+                className={`px-3.5 pb-4 pt-1 space-y-4 border-t ${theme === 'dark'
+                  ? 'border-neutral-800/80 bg-[#0B0F19]'
+                  : 'border-neutral-200/60 bg-white'
+                  }`}
               >
                 {item.columns.map((col) => (
                   <div key={col.title} className="space-y-1.5 pt-2">
@@ -262,19 +247,17 @@ export function MobileMegaMenuAccordion({ onItemClick, theme = 'dark' }) {
                           key={subItem.name}
                           to={subItem.to}
                           onClick={onItemClick}
-                          className={`block px-2.5 py-2 rounded-xl text-xs font-semibold ${
-                            theme === 'dark'
-                              ? 'text-neutral-200 hover:bg-neutral-800/60 hover:text-cyan-400'
-                              : 'text-neutral-800 hover:bg-neutral-100 hover:text-violet-700'
-                          } transition-colors`}
+                          className={`block px-2.5 py-2 rounded-xl text-xs font-semibold ${theme === 'dark'
+                            ? 'text-neutral-200 hover:bg-neutral-800/60 hover:text-cyan-400'
+                            : 'text-neutral-800 hover:bg-neutral-100 hover:text-violet-700'
+                            } transition-colors`}
                         >
                           <div>{subItem.name}</div>
                           <div
-                            className={`text-[11px] ${
-                              theme === 'dark'
-                                ? 'text-neutral-400'
-                                : 'text-neutral-500'
-                            } font-normal line-clamp-2 mt-0.5`}
+                            className={`text-[11px] ${theme === 'dark'
+                              ? 'text-neutral-400'
+                              : 'text-neutral-500'
+                              } font-normal line-clamp-2 mt-0.5`}
                           >
                             {subItem.desc}
                           </div>
@@ -286,20 +269,18 @@ export function MobileMegaMenuAccordion({ onItemClick, theme = 'dark' }) {
 
                 {item.featured && (
                   <div
-                    className={`pt-2 border-t ${
-                      theme === 'dark'
-                        ? 'border-neutral-800/80'
-                        : 'border-neutral-100'
-                    }`}
+                    className={`pt-2 border-t ${theme === 'dark'
+                      ? 'border-neutral-800/80'
+                      : 'border-neutral-100'
+                      }`}
                   >
                     <Link
                       to={item.featured.ctaTo}
                       onClick={onItemClick}
-                      className={`block p-3 rounded-xl text-xs font-bold text-center ${
-                        theme === 'dark'
-                          ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-md shadow-pink-500/20'
-                          : 'bg-violet-50 text-violet-900 border border-violet-100'
-                      }`}
+                      className={`block p-3 rounded-xl text-xs font-bold text-center ${theme === 'dark'
+                        ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-md shadow-pink-500/20'
+                        : 'bg-violet-50 text-violet-900 border border-violet-100'
+                        }`}
                     >
                       {item.featured.ctaText} &bull; {item.featured.title}
                     </Link>
