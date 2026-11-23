@@ -29,7 +29,7 @@ const ASPECT_RATIO_MAP = {
 
 export class CloudflareAiService {
   /**
-   * Check if Cloudflare credentials are configured in environment
+   * Check if Cloudflare Text-to-Image credentials are configured in environment
    */
   static isConfigured() {
     const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || env.CLOUDFLARE_ACCOUNT_ID
@@ -38,13 +38,34 @@ export class CloudflareAiService {
   }
 
   /**
-   * Get credentials securely
+   * Get Text-to-Image credentials securely
    */
   static getCredentials() {
     const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID || env.CLOUDFLARE_ACCOUNT_ID || '').trim()
     const token = (process.env.CLOUDFLARE_API_TOKEN || env.CLOUDFLARE_API_TOKEN || '').trim()
     if (!accountId || !token) {
       throw new Error('[Cloudflare AI Error] Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN in backend environment.')
+    }
+    return { accountId, token }
+  }
+
+  /**
+   * Check if separate Cloudflare Image-to-Image credentials are configured
+   */
+  static isImg2ImgConfigured() {
+    const accountId = process.env.CLOUDFLARE_IMG2IMG_ACCOUNT_ID || env.CLOUDFLARE_IMG2IMG_ACCOUNT_ID
+    const token = process.env.CLOUDFLARE_IMG2IMG_API_TOKEN || env.CLOUDFLARE_IMG2IMG_API_TOKEN
+    return Boolean(accountId && token && accountId.trim() && token.trim())
+  }
+
+  /**
+   * Get Image-to-Image credentials securely (isolated exclusively for Image-to-Image)
+   */
+  static getImg2ImgCredentials() {
+    const accountId = (process.env.CLOUDFLARE_IMG2IMG_ACCOUNT_ID || env.CLOUDFLARE_IMG2IMG_ACCOUNT_ID || '').trim()
+    const token = (process.env.CLOUDFLARE_IMG2IMG_API_TOKEN || env.CLOUDFLARE_IMG2IMG_API_TOKEN || '').trim()
+    if (!accountId || !token) {
+      throw new Error('[Cloudflare AI Error] Missing CLOUDFLARE_IMG2IMG_ACCOUNT_ID or CLOUDFLARE_IMG2IMG_API_TOKEN in backend environment.')
     }
     return { accountId, token }
   }
@@ -223,6 +244,189 @@ export class CloudflareAiService {
       executionTimeMs: latencyMs,
       modelId,
       cfModel: modelConfig.cfModel
+    }
+  }
+
+  /**
+   * Execute real Image-to-Image generation via Cloudflare Workers AI FLUX.2 Klein 4B
+   * Strictly uses isolated CLOUDFLARE_IMG2IMG credentials and multipart input_image_0 payload
+   */
+  static async generateImageToImage({ prompt, referenceImagePath, parameters = {}, jobId = 'default' }) {
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      throw new Error('[Cloudflare AI Error] Prompt is required for image-to-image generation.')
+    }
+
+    if (!referenceImagePath) {
+      throw new Error('[Cloudflare AI Error] Reference image is required for image-to-image generation.')
+    }
+
+    // 1. Resolve and read reference image buffer
+    let imageBuffer
+    let mimeType = 'image/jpeg'
+
+    if (Buffer.isBuffer(referenceImagePath)) {
+      imageBuffer = referenceImagePath
+    } else if (referenceImagePath && typeof referenceImagePath === 'object' && referenceImagePath.type === 'Buffer' && Array.isArray(referenceImagePath.data)) {
+      imageBuffer = Buffer.from(referenceImagePath.data)
+    } else if (typeof referenceImagePath === 'string') {
+      let resolvedPath = referenceImagePath
+      if (resolvedPath.startsWith('/uploads/') || resolvedPath.startsWith('uploads/')) {
+        const rel = resolvedPath.startsWith('/') ? resolvedPath.slice(1) : resolvedPath
+        resolvedPath = path.resolve(process.cwd(), rel)
+      } else if (resolvedPath.startsWith('/images/') || resolvedPath.startsWith('images/')) {
+        const rel = resolvedPath.startsWith('/') ? resolvedPath.slice(1) : resolvedPath
+        const candidatePaths = [
+          path.resolve(process.cwd(), '../Kiaan-ai-image-generator-frontend/public', rel),
+          path.resolve(process.cwd(), 'uploads', rel),
+          path.resolve(process.cwd(), 'public', rel)
+        ]
+        const found = candidatePaths.find(p => fs.existsSync(p))
+        if (found) resolvedPath = found
+      }
+
+      if (!fs.existsSync(resolvedPath)) {
+        throw new Error(`[Cloudflare AI Error] Reference image file not found on server: ${referenceImagePath}`)
+      }
+      imageBuffer = fs.readFileSync(resolvedPath)
+      const ext = path.extname(resolvedPath).toLowerCase()
+      if (ext === '.png') mimeType = 'image/png'
+      else if (ext === '.webp') mimeType = 'image/webp'
+      else mimeType = 'image/jpeg'
+    } else {
+      throw new Error('[Cloudflare AI Error] Invalid reference image input type.')
+    }
+
+    if (!imageBuffer || imageBuffer.length < 100) {
+      throw new Error('[Cloudflare AI Error] Reference image data is empty or invalid.')
+    }
+
+    // 2. Obtain isolated Image-to-Image Cloudflare credentials
+    const { accountId, token } = this.getImg2ImgCredentials()
+    const cfModel = '@cf/black-forest-labs/flux-2-klein-4b'
+    const endpoint = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${cfModel}`
+    const dims = this.parseDimensions(parameters.aspect || parameters.aspectRatio, parameters.width, parameters.height)
+
+    const startTime = Date.now()
+    logger.info(`[Cloudflare AI] Calling Img2Img model ${cfModel} for Job #${jobId}...`)
+
+    // 3. Construct multipart form-data with input_image_0
+    const formData = new FormData()
+    formData.append('prompt', prompt.trim())
+
+    const imageBlob = new Blob([imageBuffer], { type: mimeType })
+    formData.append('input_image_0', imageBlob, `reference.${mimeType.split('/')[1] || 'jpg'}`)
+
+    const rawStrength = parameters.strength !== undefined ? parseFloat(parameters.strength) : 0.65
+    const clampedStrength = isNaN(rawStrength) ? 0.65 : Math.min(1.0, Math.max(0.05, rawStrength))
+    formData.append('strength', String(clampedStrength))
+
+    formData.append('width', String(dims.width))
+    formData.append('height', String(dims.height))
+
+    if (parameters.seed !== undefined && parameters.seed !== null && parameters.seed !== '') {
+      const parsedSeed = parseInt(parameters.seed, 10)
+      if (!isNaN(parsedSeed)) {
+        formData.append('seed', String(parsedSeed))
+      }
+    }
+
+    let response
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      })
+    } catch (networkErr) {
+      logger.error(`[Cloudflare AI] Img2Img network request failed: ${networkErr.message}`)
+      throw new Error(`[Cloudflare AI Network Error] Failed to reach Cloudflare Workers AI API: ${networkErr.message}`)
+    }
+
+    const latencyMs = Date.now() - startTime
+
+    if (response.status === 401) {
+      throw new Error('[Cloudflare AI Error] Authentication failed (HTTP 401). Verify CLOUDFLARE_IMG2IMG_API_TOKEN in backend/.env.')
+    }
+    if (response.status === 429) {
+      throw new Error('[Cloudflare AI Error] Rate limit exceeded (HTTP 429). Cloudflare Workers AI capacity temporarily exhausted.')
+    }
+    if (!response.ok) {
+      let errText = ''
+      try {
+        const errJson = await response.json()
+        errText = errJson.errors?.[0]?.message || errJson.error || JSON.stringify(errJson)
+      } catch {
+        errText = await response.text()
+      }
+
+      const isOutputFlagged = /flagged|content moderation|safety/i.test(errText)
+      if (isOutputFlagged) {
+        logger.warn(`[Cloudflare AI] Job #${jobId} flagged by provider safety filter (HTTP ${response.status})`)
+        const flaggedError = new Error('The AI safety filter flagged the generated output for this prompt. Please try a different description or prompt variation.')
+        flaggedError.code = 'CONTENT_OUTPUT_FLAGGED'
+        flaggedError.statusCode = 400
+        flaggedError.isFlagged = true
+        throw flaggedError
+      }
+
+      throw new Error(`[Cloudflare AI Error] API request failed with HTTP ${response.status}: ${errText}`)
+    }
+
+    let outBuffer
+    const contentType = response.headers.get('content-type') || ''
+
+    if (contentType.includes('application/json')) {
+      const resultJson = await response.json()
+      if (resultJson.success === false && !resultJson.result) {
+        const msg = resultJson.errors?.[0]?.message || 'Cloudflare returned unsuccessful status'
+        if (/flagged|content moderation|safety/i.test(msg)) {
+          logger.warn(`[Cloudflare AI] Job #${jobId} flagged by provider safety filter in JSON response`)
+          const flaggedError = new Error('The AI safety filter flagged the generated output for this prompt. Please try a different description or prompt variation.')
+          flaggedError.code = 'CONTENT_OUTPUT_FLAGGED'
+          flaggedError.statusCode = 400
+          flaggedError.isFlagged = true
+          throw flaggedError
+        }
+        throw new Error(`[Cloudflare AI Error] ${msg}`)
+      }
+
+      const b64Data = resultJson.result?.image || resultJson.image
+      if (!b64Data || typeof b64Data !== 'string') {
+        throw new Error('[Cloudflare AI Error] Response JSON missing valid base64 image data.')
+      }
+
+      const cleanB64 = b64Data.replace(/^data:image\/\w+;base64,/, '')
+      outBuffer = Buffer.from(cleanB64, 'base64')
+    } else {
+      const arrayBuffer = await response.arrayBuffer()
+      outBuffer = Buffer.from(arrayBuffer)
+    }
+
+    if (!outBuffer || outBuffer.length < 100) {
+      throw new Error('[Cloudflare AI Error] Received empty or corrupted image data from Cloudflare.')
+    }
+
+    const uploadsDir = path.resolve(process.cwd(), 'uploads', 'generations')
+    fs.mkdirSync(uploadsDir, { recursive: true })
+
+    const fileName = `gen_${jobId}_${Date.now()}.jpg`
+    const filePath = path.join(uploadsDir, fileName)
+    fs.writeFileSync(filePath, outBuffer)
+
+    const storagePath = `/uploads/generations/${fileName}`
+    logger.info(`[Cloudflare AI] Img2Img image successfully synthesized and saved: ${storagePath} (${outBuffer.length} bytes in ${latencyMs}ms)`)
+
+    return {
+      storagePath,
+      thumbnailPath: storagePath,
+      dimensions: `${dims.width}x${dims.height}`,
+      fileSizeBytes: outBuffer.length,
+      mediaType: 'IMAGE',
+      executionTimeMs: latencyMs,
+      modelId: 'flux-2-klein-4b',
+      cfModel
     }
   }
 }

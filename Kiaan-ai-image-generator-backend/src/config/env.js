@@ -40,6 +40,8 @@ function validateEnv() {
     ENABLE_AI_WORKER: process.env.ENABLE_AI_WORKER === 'true',
     CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID || '',
     CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN || '',
+    CLOUDFLARE_IMG2IMG_ACCOUNT_ID: process.env.CLOUDFLARE_IMG2IMG_ACCOUNT_ID || '',
+    CLOUDFLARE_IMG2IMG_API_TOKEN: process.env.CLOUDFLARE_IMG2IMG_API_TOKEN || '',
     CLOUDFLARE_INFERENCE_MODE: process.env.CLOUDFLARE_INFERENCE_MODE || 'live',
     isProduction: process.env.NODE_ENV === 'production',
     isDevelopment: process.env.NODE_ENV !== 'production'

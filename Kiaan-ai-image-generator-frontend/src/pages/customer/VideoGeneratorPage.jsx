@@ -266,6 +266,7 @@ export function VideoGeneratorPage() {
   }
 
   const handleGenerate = async () => {
+    if (isGenerating) return
     const finalPrompt = prompt.trim() || VIDEO_PROMPT_INSPIRATIONS[Math.floor(Math.random() * VIDEO_PROMPT_INSPIRATIONS.length)]
     if (!prompt.trim()) {
       setPrompt(finalPrompt)
@@ -412,11 +413,13 @@ export function VideoGeneratorPage() {
         return
       }
       if (err.response?.status === 503) {
-        const msg = err.response?.data?.error || 'AI video inference service is currently offline. No credits were deducted.'
+        const rawError = err.response?.data?.error
+        const msg = (typeof rawError === 'string' ? rawError : rawError?.message) || 'AI video inference service is currently offline. No credits were deducted.'
         alert(`Service Unavailable: ${msg}`)
         return
       }
-      const errMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Video generation request failed.'
+      const rawError = err.response?.data?.error
+      const errMsg = (typeof rawError === 'string' ? rawError : rawError?.message) || err.response?.data?.message || err.message || 'Video generation request failed.'
       alert(`Generation Error: ${errMsg}`)
     }
   }

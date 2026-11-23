@@ -68,6 +68,7 @@ export class AssetsService {
       createdAt: asset.createdAt.toISOString(),
       src: asset.storagePath,
       storagePath: asset.storagePath,
+      referenceImage: params.referenceImage || null,
       poster: asset.thumbnailPath || null,
       thumbnailPath: asset.thumbnailPath || null,
       sizeBytes: Number(asset.fileSizeBytes || 0),
