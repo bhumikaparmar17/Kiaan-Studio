@@ -1,26 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Video,
   Sparkles,
+  Wand2,
+  Video,
+  Film,
   Play,
-  Pause,
   RotateCcw,
-  Maximize2,
+  RefreshCw,
   Download,
   Copy,
   Check,
-  Clock,
-  Coins,
-  Layers,
-  Wand2,
+  Maximize2,
+  Sliders,
   ChevronDown,
   ChevronUp,
-  Sliders,
-  Volume2,
-  VolumeX,
-  Share2,
-  Film,
-  RefreshCw
+  Square,
+  RectangleHorizontal,
+  RectangleVertical,
+  Clock,
+  Coins,
+  AlertTriangle,
+  X,
+  Lock,
+  Camera
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
@@ -29,110 +31,58 @@ import { api } from '../../services/api'
 import { cn } from '../../utils/cn'
 import { formatDateTime } from '../../utils/format'
 
-// Video Generation Models (PRD / sovereign open weights)
+// Curated inspiration prompts for Video exploration
+const VIDEO_PROMPT_INSPIRATIONS = [
+  'Cinematic drone flyover above a secluded tropical island waterfall at sunset, lush jungle mist, golden hour volumetric rays.',
+  'Formula race car drifting around a rain-slicked asphalt curve at night, sparks flying, tire smoke reflecting neon stadium lights.',
+  'Futuristic cybernetic metropolis street tracking shot, flying hover vehicles cruising between glowing holographic skyscrapers in heavy rain.',
+  'Slow-motion macro shot of an espresso drop splashing into a porcelain cup with creamy swirling crema ripples.',
+  'Majestic snow leopard stalking silently across high Himalayan peaks at dawn, hyperrealistic fur dynamics.',
+  'Ocean wave barrel curling over a shallow coral reef in crystal-clear turquoise waters with natural sunlight caustics.'
+]
+
+// Video Foundation Models (Open-weights architecture — marked Coming Soon)
 const VIDEO_MODELS = [
   {
     id: 'wan-2.1-t2v-1.3b',
     name: 'Wan 2.1 Video (Draft 480p)',
-    badge: 'Fast (~35s)',
-    badgeColor: 'bg-emerald-950/70 text-emerald-300 border-emerald-800/60',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-neutral-900/90 text-neutral-400 border-neutral-700/60',
     description: 'Fast 3D spatio-temporal video synthesis at 854×480. Ideal for rapid shot ideation.',
     creditCost: 12,
     defaultDuration: '5.0s',
-    defaultFps: 16
+    defaultFps: 16,
+    resolution: '854×480',
+    isAvailable: false
   },
   {
     id: 'wan-2.1-t2v-14b',
     name: 'Wan 2.1 Video (Cinema 720p)',
-    badge: 'Cinema 720p (~75s)',
-    badgeColor: 'bg-cyan-950/70 text-cyan-300 border-cyan-800/60',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-neutral-900/90 text-neutral-400 border-neutral-700/60',
     description: 'High-definition 1280×720 cinematic video generation with fluid 3D DiT dynamic camera motion.',
     creditCost: 25,
     defaultDuration: '5.0s',
-    defaultFps: 24
+    defaultFps: 24,
+    resolution: '1280×720',
+    isAvailable: false
   },
   {
     id: 'ltx-video-0.9',
     name: 'LTX-Video 0.9.1 (Spatial)',
-    badge: 'Ultra Motion',
-    badgeColor: 'bg-sky-950/70 text-sky-300 border-sky-800/60',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-neutral-900/90 text-neutral-400 border-neutral-700/60',
     description: 'Lightweight spatio-temporal video foundation model for dynamic action sequences.',
     creditCost: 18,
     defaultDuration: '4.0s',
-    defaultFps: 24
-  }
-]
-
-// Prompt Inspirations for Video
-const VIDEO_PROMPT_INSPIRATIONS = [
-  'Cinematic drone flyover above a secluded tropical island waterfall at sunset, lush jungle mist, golden hour volumetric rays',
-  'Formula race car drifting around a rain-slicked asphalt curve at night, sparks flying, tire smoke reflecting neon stadium lights',
-  'Futuristic cybernetic metropolis street tracking shot, flying hover vehicles cruising between glowing holographic skyscrapers in heavy rain',
-  'Slow-motion macro shot of an espresso drop splashing into a porcelain cup with creamy swirling crema ripples'
-]
-
-// Sample Video Results
-const SAMPLE_VIDEOS = [
-  {
-    id: 'vid-001',
-    title: 'Formula Speedway Drift',
-    prompt: 'Formula race car drifting around rain-slicked asphalt curve at night, sparks flying, tire smoke reflecting neon stadium lights',
-    model: 'Wan 2.1 Video (Cinema 720p)',
-    resolution: '1280×720 (16:9)',
-    duration: '5.0s',
-    fps: 24,
-    cameraMotion: 'Orbit Right & Zoom',
-    seed: '748291039',
-    timestamp: 'Just now',
-    thumbnail: '/images/landing/gallery-motorsport.jpg',
-    badge: '16:9 Cinema'
-  },
-  {
-    id: 'vid-002',
-    title: 'Motocross Sand Dune Jump',
-    prompt: 'High-speed tracking shot of motocross rider flying over a steep sand dune against dramatic orange sunset skies',
-    model: 'Wan 2.1 Video (Draft 480p)',
-    resolution: '854×480 (16:9)',
-    duration: '4.0s',
-    fps: 16,
-    cameraMotion: 'Dynamic Tracking',
-    seed: '918237461',
-    timestamp: '12m ago',
-    thumbnail: '/images/landing/gallery-motocross.jpg',
-    badge: 'Draft 480p'
-  },
-  {
-    id: 'vid-003',
-    title: 'Fantasy Emerald Valley Cascade',
-    prompt: 'Gentle slow aerial crane shot descending towards an enchanted bioluminescent waterfall nestled in emerald mountains',
-    model: 'Wan 2.1 Video (Cinema 720p)',
-    resolution: '1280×720 (16:9)',
-    duration: '5.0s',
-    fps: 24,
-    cameraMotion: 'Crane Down & Forward',
-    seed: '309182745',
-    timestamp: '35m ago',
-    thumbnail: '/images/landing/gallery-fantasy.jpg',
-    badge: 'Cinematic'
-  },
-  {
-    id: 'vid-004',
-    title: 'Astronaut Visor Reflection',
-    prompt: 'Slow cinematic push-in portrait on deep space astronaut helmet with glowing nebula vortex swirling in visor glass',
-    model: 'Wan 2.1 Video (Cinema 720p)',
-    resolution: '1024×1024 (1:1)',
-    duration: '5.0s',
-    fps: 24,
-    cameraMotion: 'Slow Dolly In',
-    seed: '582019482',
-    timestamp: '1h ago',
-    thumbnail: '/images/landing/hero-astronaut.jpg',
-    badge: '1:1 Square'
+    defaultFps: 24,
+    resolution: '1280×720',
+    isAvailable: false
   }
 ]
 
 export function VideoGeneratorPage() {
-  const { user, setUser } = useAuth()
+  const { user } = useAuth()
 
   // Form State
   const [prompt, setPrompt] = useState('')
@@ -142,22 +92,98 @@ export function VideoGeneratorPage() {
   const [duration, setDuration] = useState('5.0s')
   const [aspectRatio, setAspectRatio] = useState('16:9')
   const [resolution, setResolution] = useState('720p')
-  const [cameraMotion, setCameraMotion] = useState('pan_right')
-  const [motionIntensity, setMotionIntensity] = useState(6)
   const [fps, setFps] = useState(24)
-  const [seed, setSeed] = useState('')
-  const [isRandomSeed, setIsRandomSeed] = useState(true)
-  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [cameraMotion, setCameraMotion] = useState('pan_right')
 
-  // Generation Simulation State
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [generationProgress, setGenerationProgress] = useState(0)
-  const [generationStepText, setGenerationStepText] = useState('')
-  const [currentVideo, setCurrentVideo] = useState(null)
+  // Real Gallery History from backend
   const [videoHistory, setVideoHistory] = useState([])
   const [loadingRecent, setLoadingRecent] = useState(true)
 
-  // Fetch logged-in user's recent Text-to-Video generations
+  // Inspection Modal
+  const [activeModalItem, setActiveModalItem] = useState(null)
+  const [copiedNotification, setCopiedNotification] = useState(false)
+
+  // Layout references for Master-Follower equal-height synchronization on Desktop
+  const canvasCardRef = useRef(null)
+  const promptCardRef = useRef(null)
+  const promptTopRef = useRef(null)
+  const promptBottomRef = useRef(null)
+  const presetsHeaderRef = useRef(null)
+
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return window.innerWidth >= 1024
+  })
+
+  const [canvasHeight, setCanvasHeight] = useState(460)
+  const [visiblePresetsCount, setVisiblePresetsCount] = useState(3)
+
+  // Calculate dynamic presets fitting into available height follower space
+  const updatePresetsCount = useCallback(() => {
+    if (typeof window === 'undefined') return
+
+    // On narrow/mobile screens, keep preset list compact so cards stack naturally
+    if (window.innerWidth < 1024) {
+      setVisiblePresetsCount((prev) => (prev !== 2 ? 2 : prev))
+      return
+    }
+
+    const currentCanvasHeight = canvasCardRef.current?.clientHeight || canvasHeight
+    if (!currentCanvasHeight) return
+
+    const topHeight = promptTopRef.current ? promptTopRef.current.offsetHeight : 124
+    const bottomHeight = promptBottomRef.current ? promptBottomRef.current.offsetHeight : 28
+    const headerHeight = presetsHeaderRef.current ? presetsHeaderRef.current.offsetHeight + 6 : 24
+    const cardPadding = 48
+    const safetyBuffer = 12
+
+    const usableHeight = currentCanvasHeight - topHeight - bottomHeight - headerHeight - cardPadding - safetyBuffer
+
+    // Each preset button is h-[32px] (32px) + gap-1.5 (6px) = 38px
+    const count = Math.max(1, Math.min(VIDEO_PROMPT_INSPIRATIONS.length, Math.floor((usableHeight + 6) / 38)))
+    setVisiblePresetsCount((prev) => (prev !== count ? count : prev))
+  }, [canvasHeight, showNegative])
+
+  useEffect(() => {
+    const handleResize = () => {
+      const desktop = window.innerWidth >= 1024
+      setIsDesktop(desktop)
+      if (!desktop) {
+        setVisiblePresetsCount(2)
+      } else {
+        updatePresetsCount()
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+
+    const canvasNode = canvasCardRef.current
+    if (!canvasNode || typeof ResizeObserver === 'undefined') {
+      return () => window.removeEventListener('resize', handleResize)
+    }
+
+    const observer = new ResizeObserver(() => {
+      const fullHeight = canvasNode.clientHeight
+      if (fullHeight > 0) {
+        setCanvasHeight(fullHeight)
+      }
+      updatePresetsCount()
+    })
+
+    observer.observe(canvasNode)
+
+    if (canvasNode.clientHeight > 0) {
+      setCanvasHeight(canvasNode.clientHeight)
+    }
+    updatePresetsCount()
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [updatePresetsCount])
+
+  // Fetch logged-in user's real video generations from authenticated assets API
   const fetchRecentVideos = useCallback(async () => {
     try {
       setLoadingRecent(true)
@@ -169,20 +195,29 @@ export function VideoGeneratorPage() {
         .filter((item) => {
           if (item.deletedAt) return false
           const isVideo = item.type === 'video' || item.mediaType === 'VIDEO'
-          const isTextToVideo = item.generationType === 'TEXT_TO_VIDEO' || item.jobType === 'TEXT_TO_VIDEO' || item.tool === 'Text-to-Video'
+          const isTextToVideo =
+            item.generationType === 'TEXT_TO_VIDEO' ||
+            item.jobType === 'TEXT_TO_VIDEO' ||
+            item.tool === 'Text-to-Video'
           return isVideo && isTextToVideo
         })
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .slice(0, 6)
         .map((item) => {
           const rawSrc = item.src || item.storagePath || ''
-          const videoUrl = rawSrc.startsWith('http') || rawSrc.startsWith('data:')
-            ? rawSrc
-            : (rawSrc.startsWith('/') ? rawSrc : `/${rawSrc}`)
+          const videoUrl =
+            rawSrc.startsWith('http') || rawSrc.startsWith('data:')
+              ? rawSrc
+              : rawSrc.startsWith('/')
+              ? rawSrc
+              : `/${rawSrc}`
           const rawThumb = item.poster || item.thumbnailPath || videoUrl
-          const thumbUrl = rawThumb.startsWith('http') || rawThumb.startsWith('data:')
-            ? rawThumb
-            : (rawThumb.startsWith('/') ? rawThumb : `/${rawThumb}`)
+          const thumbUrl =
+            rawThumb.startsWith('http') || rawThumb.startsWith('data:')
+              ? rawThumb
+              : rawThumb.startsWith('/')
+              ? rawThumb
+              : `/${rawThumb}`
 
           return {
             id: item.id,
@@ -202,15 +237,9 @@ export function VideoGeneratorPage() {
           }
         })
       setVideoHistory(videoItems)
-      if (videoItems.length > 0) {
-        setCurrentVideo(videoItems[0])
-      } else {
-        setCurrentVideo(null)
-      }
     } catch (err) {
       console.error('Failed to load recent video generations:', err)
       setVideoHistory([])
-      setCurrentVideo(null)
     } finally {
       setLoadingRecent(false)
     }
@@ -220,38 +249,15 @@ export function VideoGeneratorPage() {
     fetchRecentVideos()
   }, [fetchRecentVideos])
 
-  // Video Player Simulation State
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [playerProgress, setPlayerProgress] = useState(0)
-  const [isMuted, setIsMuted] = useState(true)
+  // Current model helper
+  const currentModelObj = VIDEO_MODELS.find((m) => m.id === selectedModel) || VIDEO_MODELS[0]
 
-  // Inspection Modal
-  const [activeModalItem, setActiveModalItem] = useState(null)
-  const [copiedNotification, setCopiedNotification] = useState(false)
-
-  const currentModelObj = VIDEO_MODELS.find(m => m.id === selectedModel) || VIDEO_MODELS[0]
-
-  // Simulate playback loop
-  useEffect(() => {
-    let interval = null
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setPlayerProgress((prev) => {
-          if (prev >= 100) {
-            return 0
-          }
-          return prev + 2.5
-        })
-      }, 100)
-    }
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [isPlaying])
-
+  // Prompt Enhancer
   const handleEnhancePrompt = () => {
     if (!prompt.trim()) {
-      setPrompt('Epic cinematic crane tracking shot, dramatic lighting, 8k render, photorealistic motion blur, high visual fidelity')
+      setPrompt(
+        'Cinematic drone flyover above a secluded tropical island waterfall at sunset, lush jungle mist, golden hour volumetric rays'
+      )
       return
     }
     const enhancements = [
@@ -265,165 +271,7 @@ export function VideoGeneratorPage() {
     }
   }
 
-  const handleGenerate = async () => {
-    if (isGenerating) return
-    const finalPrompt = prompt.trim() || VIDEO_PROMPT_INSPIRATIONS[Math.floor(Math.random() * VIDEO_PROMPT_INSPIRATIONS.length)]
-    if (!prompt.trim()) {
-      setPrompt(finalPrompt)
-    }
-
-    setIsGenerating(true)
-    setGenerationProgress(10)
-    setGenerationStepText('Initializing 3D DiT video inference queue...')
-
-    const randomSeedVal = isRandomSeed ? Math.floor(Math.random() * 900000000 + 100000000).toString() : (seed || '8192')
-
-    try {
-      const res = await api.post('/generation/jobs', {
-        type: 'TEXT_TO_VIDEO',
-        modelId: currentModelObj.id,
-        prompt: finalPrompt,
-        negativePrompt: negativePrompt.trim() || undefined,
-        parameters: {
-          duration,
-          aspectRatio,
-          fps,
-          cameraMotion,
-          seed: randomSeedVal
-        }
-      })
-
-      if (res.data?.success && res.data?.data) {
-        const backendJob = res.data.data
-        const jobId = backendJob.id
-
-        // Synchronize real credit balance from server after reservation
-        try {
-          const balRes = await api.get('/credits/balance')
-          if (balRes.data?.data && setUser) {
-            setUser((prev) => (prev ? { ...prev, creditBalance: balRes.data.data.balance } : prev))
-          }
-        } catch {}
-
-        setGenerationProgress(20)
-        setGenerationStepText(`Job #${jobId.slice(0, 8)} enqueued (Queue pos #${backendJob.queuePosition || 1}) - waiting for Wan 2.1 video worker...`)
-
-        const pollInterval = setInterval(async () => {
-          try {
-            const jobRes = await api.get(`/generation/jobs/${jobId}`)
-            const jobData = jobRes.data?.data
-            if (!jobData) return
-
-            if (jobData.status === 'PROCESSING') {
-              setGenerationProgress((prev) => Math.min(85, Math.max(prev, 50)))
-              setGenerationStepText(`Synthesizing spatio-temporal video latents on ${currentModelObj.name}...`)
-            } else if (jobData.status === 'COMPLETED') {
-              clearInterval(pollInterval)
-
-              const asset = jobData.assets?.[0]
-              const rawSrc = asset?.src || asset?.storagePath
-
-              if (!asset || !rawSrc) {
-                setIsGenerating(false)
-                setGenerationStepText('Video worker reported completion, but no valid video asset was returned.')
-                alert('Video worker reported completion, but no valid video asset output was received.')
-                return
-              }
-
-              setGenerationProgress(100)
-              setGenerationStepText('Video sequence ready!')
-
-              const finalVideoUrl = rawSrc.startsWith('http') || rawSrc.startsWith('data:')
-                ? rawSrc
-                : (rawSrc.startsWith('/') ? rawSrc : `/${rawSrc}`)
-
-              const newVideo = {
-                id: jobData.id,
-                title: finalPrompt.slice(0, 30) || 'Custom Motion Sequence',
-                prompt: finalPrompt,
-                model: currentModelObj.name,
-                resolution: `${resolution === '720p' ? '1280×720' : '854×480'} (${aspectRatio})`,
-                duration: duration,
-                fps: fps,
-                cameraMotion: cameraMotion,
-                seed: randomSeedVal,
-                timestamp: 'Just now',
-                thumbnail: asset.thumbnailPath || finalVideoUrl,
-                videoUrl: finalVideoUrl,
-                badge: `${resolution} ${aspectRatio}`,
-                status: 'COMPLETED'
-              }
-
-              setCurrentVideo(newVideo)
-              setVideoHistory((prev) => {
-                const combined = [newVideo, ...prev.filter((i) => i.id !== newVideo.id)]
-                return combined.slice(0, 6)
-              })
-              setIsGenerating(false)
-              setIsPlaying(true)
-              setPlayerProgress(0)
-
-              // Refresh credits
-              try {
-                const balRes = await api.get('/credits/balance')
-                if (balRes.data?.data && setUser) {
-                  setUser((prev) => (prev ? { ...prev, creditBalance: balRes.data.data.balance } : prev))
-                }
-              } catch {}
-            } else if (jobData.status === 'FAILED' || jobData.status === 'CANCELED') {
-              clearInterval(pollInterval)
-              setIsGenerating(false)
-              setGenerationProgress(0)
-              setGenerationStepText(`Video job ${jobData.status.toLowerCase()}: ${jobData.errorMessage || 'AI inference error'}`)
-              alert(`Video generation failed: ${jobData.errorMessage || 'AI inference error'}. Any reserved credits have been refunded.`)
-
-              // Refresh credits after refund
-              try {
-                const balRes = await api.get('/credits/balance')
-                if (balRes.data?.data && setUser) {
-                  setUser((prev) => (prev ? { ...prev, creditBalance: balRes.data.data.balance } : prev))
-                }
-              } catch {}
-            }
-          } catch (pollErr) {
-            console.warn('[AI Video Poll Warning]', pollErr)
-          }
-        }, 1500)
-
-        setTimeout(() => {
-          clearInterval(pollInterval)
-          setIsGenerating((prev) => {
-            if (prev) {
-              setGenerationStepText('Video job is still queued or processing on the AI engine. View under My Generations.')
-              return false
-            }
-            return false
-          })
-        }, 90000)
-
-        return
-      }
-    } catch (err) {
-      setIsGenerating(false)
-      setGenerationProgress(0)
-      setGenerationStepText('')
-
-      if (err.response?.status === 402) {
-        alert('Insufficient credits! You need at least 25 credits to run a 3D DiT video job.')
-        return
-      }
-      if (err.response?.status === 503) {
-        const rawError = err.response?.data?.error
-        const msg = (typeof rawError === 'string' ? rawError : rawError?.message) || 'AI video inference service is currently offline. No credits were deducted.'
-        alert(`Service Unavailable: ${msg}`)
-        return
-      }
-      const rawError = err.response?.data?.error
-      const errMsg = (typeof rawError === 'string' ? rawError : rawError?.message) || err.response?.data?.message || err.message || 'Video generation request failed.'
-      alert(`Generation Error: ${errMsg}`)
-    }
-  }
-
+  // Copy prompt to clipboard
   const handleCopyPrompt = (text) => {
     navigator.clipboard?.writeText(text)
     setCopiedNotification(true)
@@ -432,26 +280,30 @@ export function VideoGeneratorPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-5 sm:space-y-6">
-      {/* Header (Eye-friendly Dark Slate Studio Theme) */}
+      {/* Top Header Card (Matching Text-to-Image and Image-to-Image Studio Theme) */}
       <div className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-5 sm:p-6 border border-neutral-800/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 text-white">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-1.5">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-950/70 text-cyan-300 border border-cyan-800/60 shrink-0">
-              <Video className="w-3.5 h-3.5 text-cyan-400" />
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
               Creation Studio
             </span>
             <span className="text-xs text-neutral-500 font-medium">/</span>
-            <span className="text-xs text-neutral-400 font-medium truncate">Text-to-Video Interactive Demo</span>
+            <span className="text-xs text-neutral-400 font-medium truncate">AI Text-to-Video Studio</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-900 text-neutral-400 border border-neutral-700/60 shrink-0 ml-1">
+              <Lock className="w-2.5 h-2.5 text-neutral-500" />
+              Coming Soon
+            </span>
           </div>
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-white leading-tight">
-            AI Video Generator
+            Text-to-Video Studio
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 mt-1 max-w-2xl">
-            Generate cinematic 5-second video sequences with Wan 2.1 3D DiT and LTX spatio-temporal video architectures.
+            Synthesize cinematic video sequences with Wan 2.1 3D DiT and LTX spatio-temporal video architectures.
           </p>
         </div>
 
-        {/* Balance & Info */}
+        {/* Available Credits display & Cost per video */}
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           <div className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#080B14] border border-neutral-800 text-left">
             <div className="text-[11px] font-medium text-neutral-400 flex items-center gap-1">
@@ -463,542 +315,392 @@ export function VideoGeneratorPage() {
             </div>
           </div>
           <div className="hidden sm:block px-3 py-2 rounded-xl bg-[#080B14] border border-neutral-800 text-xs text-neutral-400">
-            Cost per video: <strong className="text-white font-semibold">{currentModelObj.creditCost} credits</strong>
+            Cost per video: <strong className="text-white font-semibold">12-25 credits (Coming Soon)</strong>
           </div>
         </div>
       </div>
 
-      {/* Main Studio Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
-        {/* Left Side: Video Generation Controls (7 cols) */}
-        <div className="lg:col-span-7 space-y-5 sm:space-y-6">
-          {/* Prompt Input Card */}
-          <div className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-5 sm:p-6 border border-neutral-800/90 shadow-sm space-y-4 text-neutral-100">
+      {/* ROW 1: Two Equal Columns (Prompt Card Follower + Video Preview Canvas Master) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 lg:items-start items-start">
+        {/* LEFT COLUMN: Video Prompt Card */}
+        <div
+          ref={promptCardRef}
+          style={{ height: isDesktop && canvasHeight ? `${canvasHeight}px` : undefined }}
+          className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-5 sm:p-6 border border-neutral-800/90 shadow-sm flex flex-col justify-between text-neutral-100 min-h-0 overflow-hidden"
+        >
+          {/* Top Section */}
+          <div ref={promptTopRef} className="space-y-3 shrink-0">
             <div className="flex items-center justify-between">
               <label htmlFor="video-prompt-input" className="text-sm font-bold text-neutral-100 flex items-center gap-2">
                 <Wand2 className="w-4 h-4 text-cyan-400" />
-                Motion Scene Prompt
+                Prompt Description
               </label>
               <button
                 type="button"
                 onClick={handleEnhancePrompt}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-cyan-300 hover:text-cyan-200 bg-cyan-950/60 hover:bg-cyan-900/60 px-2.5 py-1 rounded-lg border border-cyan-800/60 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-cyan-300 hover:text-cyan-200 bg-cyan-950/60 hover:bg-cyan-900/60 px-2.5 py-1 rounded-lg border border-cyan-800/60 transition-colors cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
                 Enhance Prompt
               </button>
             </div>
 
+            {/* Prompt Textarea */}
             <div className="relative">
               <textarea
                 id="video-prompt-input"
-                rows={4}
+                rows={3}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe subject dynamics, physical motion, camera trajectory, lighting and environment (e.g. Formula race car drifting around rain-slicked turn)..."
-                className="w-full rounded-xl p-3.5 text-sm bg-[#080B14] border border-neutral-700/80 text-neutral-100 placeholder:text-neutral-500 focus:bg-[#0A0E17] focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 transition-all resize-none"
+                placeholder="Describe subject dynamics, physical motion, camera trajectory, lighting and environment (e.g. Formula race car drifting around rain-slicked curve)..."
+                className="w-full rounded-xl p-3 text-sm bg-[#080B14] border border-neutral-700/80 text-neutral-100 placeholder:text-neutral-500 focus:bg-[#0A0E17] focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 transition-all resize-none"
               />
               {prompt && (
                 <button
                   type="button"
                   onClick={() => setPrompt('')}
-                  className="absolute bottom-3 right-3 text-xs text-neutral-400 hover:text-white bg-neutral-800/90 px-2 py-0.5 rounded border border-neutral-700 shadow-xs"
+                  className="absolute bottom-2.5 right-2.5 text-xs text-neutral-400 hover:text-white bg-neutral-800/90 px-2 py-0.5 rounded border border-neutral-700 shadow-xs cursor-pointer"
                 >
                   Clear
                 </button>
               )}
             </div>
+          </div>
 
-            {/* Inspiration Chips */}
-            <div className="space-y-1.5 pt-1">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-                Inspiration Presets (Click to Load)
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {VIDEO_PROMPT_INSPIRATIONS.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setPrompt(preset)}
-                    className="text-left text-xs bg-[#080B14] hover:bg-cyan-950/40 text-neutral-300 hover:text-cyan-200 hover:border-cyan-700/60 border border-neutral-800 px-3 py-1.5 rounded-lg transition-all line-clamp-1 max-w-full"
-                    title={preset}
-                  >
-                    🎬 {preset}
-                  </button>
-                ))}
-              </div>
+          {/* Middle Section: Inspiration Presets (Dynamic Fit) */}
+          <div className="flex-1 min-h-0 flex flex-col justify-start py-2 overflow-hidden">
+            <div
+              ref={presetsHeaderRef}
+              className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 shrink-0 mb-1.5"
+            >
+              Inspiration Presets (Click to Load)
             </div>
 
-            {/* Negative Prompt Toggle */}
-            <div className="pt-2 border-t border-neutral-800">
-              <button
-                type="button"
-                onClick={() => setShowNegative(!showNegative)}
-                className="text-xs font-semibold text-neutral-400 hover:text-white flex items-center gap-1.5"
-              >
-                {showNegative ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                {showNegative ? 'Hide Negative Prompt' : 'Add Negative Prompt (Avoid jitter, static, blur)'}
-              </button>
-
-              {showNegative && (
-                <div className="mt-2.5">
-                  <textarea
-                    rows={2}
-                    value={negativePrompt}
-                    onChange={(e) => setNegativePrompt(e.target.value)}
-                    placeholder="e.g. jerky motion, flicker, unnatural physics, distorted hands, morphing artifacts, low bitrate..."
-                    className="w-full rounded-xl p-3 text-xs bg-[#080B14] border border-neutral-700/80 text-neutral-100 placeholder:text-neutral-500 focus:bg-[#0A0E17] focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all resize-none"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Generate Video Action Button (In Normal Flow) */}
-            <div className="pt-3 border-t border-neutral-800/80">
-              <Button
-                variant="gradient"
-                size="lg"
-                onClick={handleGenerate}
-                isLoading={isGenerating}
-                leftIcon={Video}
-                className="w-full justify-center font-bold text-sm sm:text-base py-3 shadow-md shadow-indigo-950/50 hover:shadow-lg hover:shadow-indigo-950/70 transition-all cursor-pointer"
-              >
-                {isGenerating ? 'Synthesizing...' : `Generate Video (${currentModelObj.creditCost} Credits)`}
-              </Button>
+            <div className="flex flex-col gap-1.5 overflow-hidden">
+              {VIDEO_PROMPT_INSPIRATIONS.slice(0, visiblePresetsCount).map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setPrompt(preset)}
+                  className="text-left text-xs bg-[#080B14] hover:bg-cyan-950/40 text-neutral-300 hover:text-cyan-200 hover:border-cyan-700/60 border border-neutral-800 px-3 py-1.5 rounded-lg transition-all truncate w-full cursor-pointer h-[32px] shrink-0"
+                  title={preset}
+                >
+                  🎬 {preset}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Model Selection Card */}
-          <div className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-6 border border-neutral-800/90 shadow-sm space-y-4 text-neutral-100">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-neutral-100 flex items-center gap-2">
-                <Film className="w-4 h-4 text-cyan-400" />
-                Video Foundation Model
-              </label>
-              <span className="text-xs text-neutral-400">Commercial Apache 2.0 Weights</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {VIDEO_MODELS.map((model) => {
-                const isSelected = selectedModel === model.id
-                return (
-                  <div
-                    key={model.id}
-                    onClick={() => {
-                      setSelectedModel(model.id)
-                      setDuration(model.defaultDuration)
-                      setFps(model.defaultFps)
-                    }}
-                    className={cn(
-                      'p-3.5 rounded-xl border text-left cursor-pointer transition-all relative flex flex-col justify-between',
-                      isSelected
-                        ? 'border-cyan-500 bg-cyan-950/30 ring-2 ring-cyan-500/20 text-white'
-                        : 'border-neutral-800 bg-[#080B14] hover:bg-neutral-800/60 hover:border-neutral-700 text-neutral-300'
-                    )}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-xs font-bold text-white">{model.name}</span>
-                      </div>
-                      <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded border inline-block mb-1.5', model.badgeColor)}>
-                        {model.badge}
-                      </span>
-                      <p className="text-[11px] text-neutral-400 line-clamp-2">
-                        {model.description}
-                      </p>
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-neutral-800 flex items-center justify-between text-[11px] text-neutral-400">
-                      <span>{model.defaultDuration}</span>
-                      <span className="font-semibold text-white">{model.creditCost} credits</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Video Specs: Duration, Resolution & Aspect Ratio */}
-          <div className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-6 border border-neutral-800/90 shadow-sm space-y-4 text-neutral-100">
-            <div className="text-sm font-bold text-neutral-100 flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-cyan-400" />
-              Duration, Aspect Ratio & Resolution
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Duration */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-neutral-300 block">Duration (Seconds)</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {['3.0s', '5.0s'].map((d) => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setDuration(d)}
-                      className={cn(
-                        'p-2.5 rounded-xl border text-xs font-semibold transition-all',
-                        duration === d
-                          ? 'border-cyan-500 bg-cyan-950/40 text-cyan-200 ring-2 ring-cyan-500/20'
-                          : 'border-neutral-800 bg-[#080B14] hover:bg-neutral-800 text-neutral-300'
-                      )}
-                    >
-                      {d} {d === '5.0s' ? '(81 frames)' : '(49 frames)'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Aspect Ratio */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-neutral-300 block">Aspect Ratio</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: '16:9', label: '16:9' },
-                    { id: '9:16', label: '9:16' },
-                    { id: '1:1', label: '1:1' }
-                  ].map((ratio) => (
-                    <button
-                      key={ratio.id}
-                      type="button"
-                      onClick={() => setAspectRatio(ratio.id)}
-                      className={cn(
-                        'p-2.5 rounded-xl border text-xs font-semibold transition-all text-center',
-                        aspectRatio === ratio.id
-                          ? 'border-cyan-500 bg-cyan-950/40 text-cyan-200 ring-2 ring-cyan-500/20'
-                          : 'border-neutral-800 bg-[#080B14] hover:bg-neutral-800 text-neutral-300'
-                      )}
-                    >
-                      {ratio.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Resolution */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-neutral-300 block">Resolution Quality</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: '720p', label: '720p HD' },
-                    { id: '480p', label: '480p Draft' }
-                  ].map((res) => (
-                    <button
-                      key={res.id}
-                      type="button"
-                      onClick={() => setResolution(res.id)}
-                      className={cn(
-                        'p-2.5 rounded-xl border text-xs font-semibold transition-all text-center',
-                        resolution === res.id
-                          ? 'border-cyan-500 bg-cyan-950/40 text-cyan-200 ring-2 ring-cyan-500/20'
-                          : 'border-neutral-800 bg-[#080B14] hover:bg-neutral-800 text-neutral-300'
-                      )}
-                    >
-                      {res.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Advanced Camera Motion & Physics */}
-          <div className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl border border-neutral-800/90 shadow-sm overflow-hidden text-neutral-100">
+          {/* Bottom Section: Negative Prompt Accordion */}
+          <div ref={promptBottomRef} className="pt-2 border-t border-neutral-800/80 shrink-0">
             <button
               type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="w-full p-4 px-6 flex items-center justify-between text-left hover:bg-[#080B14]/60 transition-colors"
+              onClick={() => setShowNegative(!showNegative)}
+              className="text-xs font-semibold text-neutral-400 hover:text-white flex items-center gap-1.5 cursor-pointer"
             >
-              <div className="flex items-center gap-2 text-sm font-bold text-neutral-100">
-                <Sliders className="w-4 h-4 text-cyan-400" />
-                Camera Motion & Advanced Dynamics
-                <span className="text-xs font-normal text-neutral-400">(Trajectory, Motion Scale, Seed)</span>
-              </div>
-              {showAdvanced ? (
-                <ChevronUp className="w-4 h-4 text-neutral-400" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-neutral-400" />
-              )}
+              {showNegative ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              {showNegative ? 'Hide Negative Prompt' : 'Add Negative Prompt (Avoid jitter, blur, static)'}
             </button>
 
-            {showAdvanced && (
-              <div className="p-6 pt-2 border-t border-neutral-800 space-y-4 bg-[#080B14]/50">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Camera Motion */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-300 block">Camera Trajectory</label>
-                    <select
-                      value={cameraMotion}
-                      onChange={(e) => setCameraMotion(e.target.value)}
-                      className="w-full rounded-xl px-3 py-2 text-xs bg-[#080B14] border border-neutral-700 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
-                    >
-                      <option value="pan_right">Pan Right Tracking</option>
-                      <option value="pan_left">Pan Left Tracking</option>
-                      <option value="zoom_in">Slow Zoom In (Dolly)</option>
-                      <option value="zoom_out">Slow Zoom Out</option>
-                      <option value="crane_down">Cinematic Crane Down</option>
-                      <option value="orbit">Circular Orbit</option>
-                      <option value="static">Static Tripod</option>
-                    </select>
-                  </div>
-
-                  {/* Motion Intensity Slider */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-semibold text-neutral-300">
-                      <span>Motion Dynamic Intensity</span>
-                      <span className="font-mono text-cyan-400">{motionIntensity} / 10</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="1"
-                      max="10"
-                      value={motionIntensity}
-                      onChange={(e) => setMotionIntensity(parseInt(e.target.value))}
-                      className="w-full accent-cyan-400 h-1.5 bg-neutral-800 rounded-lg cursor-pointer"
-                    />
-                    <p className="text-[10px] text-neutral-400">Controls speed and kinetic action in scene.</p>
-                  </div>
-                </div>
-
-                {/* Seed Control */}
-                <div className="pt-2 border-t border-neutral-800 flex items-center justify-between">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-neutral-300 block">RNG Seed Lock</label>
-                    <input
-                      type="text"
-                      disabled={isRandomSeed}
-                      value={isRandomSeed ? 'Randomized Seed' : seed}
-                      onChange={(e) => setSeed(e.target.value)}
-                      placeholder="e.g. 592810"
-                      className="rounded-xl px-3 py-1.5 text-xs bg-[#080B14] border border-neutral-700 text-neutral-100 disabled:bg-neutral-900 disabled:text-neutral-500 focus:outline-none font-mono"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsRandomSeed(!isRandomSeed)}
-                    className="text-xs text-cyan-400 font-medium hover:text-cyan-300"
-                  >
-                    {isRandomSeed ? '✓ Random Seed' : 'Lock Seed'}
-                  </button>
-                </div>
+            {showNegative && (
+              <div className="mt-2">
+                <textarea
+                  rows={2}
+                  value={negativePrompt}
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  placeholder="e.g. jerky motion, flicker, unnatural physics, distorted hands, morphing artifacts, low bitrate..."
+                  className="w-full rounded-xl p-2.5 text-xs bg-[#080B14] border border-neutral-700/80 text-neutral-100 placeholder:text-neutral-500 focus:bg-[#0A0E17] focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all resize-none"
+                />
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Side: Interactive Video Player & Recent Sample Gallery (5 cols) */}
-        <div className="lg:col-span-5 space-y-5 sm:space-y-6">
-          {/* Active Video Player Card */}
-          <div className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-5 sm:p-6 border border-neutral-800/90 shadow-sm space-y-4 text-neutral-100">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-neutral-100 flex items-center gap-2">
-                <Play className="w-4 h-4 text-cyan-400" />
-                Video Preview Player
-              </h2>
-              {isGenerating ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-cyan-300 bg-cyan-950/70 px-2.5 py-0.5 rounded-full border border-cyan-800/60 animate-pulse">
-                  Rendering 3D DiT...
-                </span>
-              ) : (
-                <span className="text-[11px] font-semibold text-neutral-400 bg-neutral-800 px-2 py-0.5 rounded">
-                  Demo Preview
-                </span>
-              )}
-            </div>
-
-            {/* Simulated Video Canvas */}
-            <div className="relative aspect-video rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 group flex items-center justify-center">
-              {isGenerating ? (
-                <div className="absolute inset-0 bg-[#080B14]/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center text-white space-y-4">
-                  <div className="w-14 h-14 rounded-2xl bg-cyan-950/60 border border-cyan-500/40 flex items-center justify-center">
-                    <Video className="w-7 h-7 text-cyan-400 animate-pulse" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold tracking-tight">Generating 3D Spatio-Temporal Video</p>
-                    <p className="text-xs text-neutral-400 mt-1 max-w-xs">{generationStepText}</p>
-                  </div>
-                  <div className="w-48 bg-neutral-800 rounded-full h-2 overflow-hidden border border-neutral-700">
-                    <div
-                      className="bg-gradient-to-r from-violet-500 to-cyan-400 h-full transition-all duration-300"
-                      style={{ width: `${generationProgress}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-mono text-cyan-400">{generationProgress}% completed</span>
-                </div>
-              ) : currentVideo ? (
-                <>
-                  <img
-                    src={currentVideo.thumbnail}
-                    alt={currentVideo.title}
-                    className="w-full h-full object-cover transition-transform duration-700"
-                  />
-
-                  {/* Play Button Overlay */}
-                  <div
-                    onClick={() => setIsPlaying(!isPlaying)}
-                    className="absolute inset-0 flex items-center justify-center cursor-pointer bg-black/20 group-hover:bg-black/40 transition-colors"
-                  >
-                    {!isPlaying && (
-                      <div className="w-14 h-14 rounded-full bg-cyan-400/90 hover:bg-cyan-300 text-neutral-950 shadow-xl flex items-center justify-center pl-1 group-hover:scale-110 transition-transform">
-                        <Play className="w-6 h-6 fill-neutral-950" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Video Control Bar */}
-                  <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col gap-2">
-                    {/* Progress scrubber */}
-                    <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden cursor-pointer">
-                      <div
-                        className="bg-cyan-400 h-full transition-all duration-100"
-                        style={{ width: `${playerProgress}%` }}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-white text-xs">
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setIsPlaying(!isPlaying)}
-                          className="hover:text-cyan-400 transition-colors"
-                        >
-                          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPlayerProgress(0)
-                            setIsPlaying(true)
-                          }}
-                          className="hover:text-cyan-400 transition-colors"
-                          title="Restart"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="font-mono text-[11px] text-neutral-300">
-                          {((playerProgress / 100) * parseFloat(currentVideo.duration || '5.0s')).toFixed(1)}s / {currentVideo.duration || '5.0s'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setIsMuted(!isMuted)}
-                          className="hover:text-cyan-400 transition-colors"
-                        >
-                          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setActiveModalItem(currentVideo)}
-                          className="hover:text-cyan-400 transition-colors"
-                        >
-                          <Maximize2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center p-8 space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-neutral-800/80 flex items-center justify-center text-neutral-400 mx-auto border border-neutral-700/60">
-                    <Video className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-neutral-300">Video Canvas Ready</p>
-                    <p className="text-[11px] text-neutral-400 max-w-xs mt-0.5">
-                      Configure your prompt on the left and click Generate Video to produce your first motion clip.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Current Video Information */}
-            {currentVideo && (
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white">{currentVideo.title}</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-950/70 text-cyan-300 border border-cyan-800/60">
-                    {currentVideo.model}
-                  </span>
-                </div>
-                <p className="text-xs text-neutral-400 line-clamp-2">"{currentVideo.prompt}"</p>
-                <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-1 border-t border-neutral-800">
-                  <span>Res: <strong className="text-white">{currentVideo.resolution}</strong></span>
-                  <span>Camera: <strong className="text-white">{currentVideo.cameraMotion}</strong></span>
-                  <span>FPS: <strong className="text-white">{currentVideo.fps}</strong></span>
-                </div>
-              </div>
-            )}
+        {/* RIGHT COLUMN: Video Preview Canvas (Master Height Driver) */}
+        <div
+          ref={canvasCardRef}
+          className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-5 sm:p-6 border border-neutral-800/90 shadow-sm flex flex-col justify-between text-neutral-100 overflow-hidden"
+        >
+          <div className="flex items-center justify-between mb-3 shrink-0">
+            <h2 className="text-sm font-bold text-neutral-100 flex items-center gap-2">
+              <Film className="w-4 h-4 text-cyan-400" />
+              Real-Time Video Canvas
+            </h2>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-neutral-900/90 text-neutral-400 border border-neutral-700/60">
+              <Lock className="w-3 h-3 text-neutral-500" />
+              Coming Soon
+            </span>
           </div>
 
-          {/* Recent Generations Gallery */}
-          <div className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-5 sm:p-6 border border-neutral-800/90 shadow-sm space-y-4 text-neutral-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-neutral-100 flex items-center gap-2">
-                  <Film className="w-4 h-4 text-cyan-400" />
-                  Recent Generations
-                </h2>
-                <p className="text-[11px] text-neutral-400 mt-0.5">Click any video to load into the preview player.</p>
-              </div>
-              <span className="text-xs font-bold text-neutral-300 bg-neutral-800 px-2 py-0.5 rounded-full">
-                {videoHistory.length}
-              </span>
-            </div>
-
-            {loadingRecent && videoHistory.length === 0 ? (
-              <div className="py-12 flex flex-col items-center justify-center text-center">
-                <RefreshCw className="w-6 h-6 text-cyan-400 animate-spin mb-2" />
-                <p className="text-xs text-neutral-400">Loading recent videos…</p>
-              </div>
-            ) : videoHistory.length === 0 ? (
-              <div className="py-10 px-4 rounded-xl border border-dashed border-neutral-800 bg-[#080B14]/60 flex flex-col items-center justify-center text-center">
-                <div className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-500 mb-2.5">
-                  <Video className="w-5 h-5 text-neutral-400" />
+          {/* 16:9 Video Preview Canvas Box */}
+          <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-[#080B14] border border-neutral-800 flex items-center justify-center transition-all duration-300 mx-auto my-auto">
+            <div className="text-center p-6 sm:p-8 space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-[#0D111C] border border-neutral-800 flex items-center justify-center text-neutral-400 mx-auto shadow-inner">
+                <div className="w-10 h-10 rounded-xl bg-cyan-950/40 border border-cyan-800/40 flex items-center justify-center text-cyan-400">
+                  <Play className="w-5 h-5 fill-cyan-400/40 text-cyan-400 ml-0.5" />
                 </div>
-                <p className="text-xs font-semibold text-neutral-200">Your recent videos will appear here</p>
-                <p className="text-[11px] text-neutral-400 mt-1 max-w-xs">
-                  Generate a video using the prompt controls on the left to populate your recent video gallery.
+              </div>
+              <div>
+                <p className="text-sm font-bold text-neutral-200">Your generated video will appear here</p>
+                <p className="text-xs text-neutral-400 max-w-sm mt-1 mx-auto leading-relaxed">
+                  AI Text-to-Video synthesis is currently in active development. When available, rendered video sequences will stream directly into this preview player.
                 </p>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {videoHistory.map((video) => (
-                  <div
-                    key={video.id}
-                    onClick={() => {
-                      setCurrentVideo(video)
-                      setIsPlaying(true)
-                      setPlayerProgress(0)
-                    }}
-                    className={cn(
-                      'group relative aspect-video rounded-xl overflow-hidden border cursor-pointer transition-all',
-                      currentVideo?.id === video.id
-                        ? 'border-cyan-500 ring-2 ring-cyan-500/20'
-                        : 'border-neutral-800 hover:border-cyan-500/60'
-                    )}
-                  >
-                    <img
-                      src={video.thumbnail}
-                      alt={video.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent p-2 flex flex-col justify-between text-white">
-                      <span className="text-[9px] font-semibold bg-black/60 px-1.5 py-0.5 rounded self-start border border-white/20">
-                        {video.duration} • {video.badge}
-                      </span>
-                      <p className="text-[10px] font-medium line-clamp-1">{video.title}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-neutral-900/80 text-cyan-400 border border-neutral-800">
+                <Sparkles className="w-3 h-3 text-cyan-400" />
+                Spatio-Temporal 3D DiT Video Engine
               </div>
-            )}
+            </div>
+          </div>
+
+          {/* Canvas Footer Status */}
+          <div className="flex items-center justify-between pt-3 border-t border-neutral-800/80 text-[11px] text-neutral-400 shrink-0 mt-3">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400/80 animate-pulse" />
+              Status: In Development (Demo Mode)
+            </span>
+            <span className="font-mono text-neutral-400">16:9 • 1280×720 HD</span>
           </div>
         </div>
       </div>
 
-      {/* Inspection Modal */}
+      {/* ROW 2: Two Equal Columns (AI Video Model Selection Left + Video Settings Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 lg:items-stretch items-start">
+        {/* LEFT COLUMN: AI Video Model Selection Card */}
+        <div className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-neutral-800/90 shadow-sm flex flex-col justify-between text-neutral-100 lg:h-full">
+          <div className="flex items-center justify-between mb-2 sm:mb-2.5 shrink-0">
+            <label className="text-xs sm:text-sm font-bold text-neutral-100 flex items-center gap-1.5">
+              <Film className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
+              AI Video Model
+            </label>
+            <span className="text-[11px] sm:text-xs text-neutral-400">Commercial Apache 2.0 Weights</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
+            {VIDEO_MODELS.map((model) => {
+              const isSelected = selectedModel === model.id
+              return (
+                <div
+                  key={model.id}
+                  onClick={() => setSelectedModel(model.id)}
+                  className={cn(
+                    'h-[108px] sm:h-[112px] p-2 sm:p-2.5 rounded-xl border text-left cursor-pointer transition-all relative flex flex-col justify-between min-w-0 opacity-80 hover:opacity-100',
+                    isSelected
+                      ? 'border-cyan-500 bg-cyan-950/30 ring-2 ring-cyan-500/20 text-white'
+                      : 'border-neutral-800 bg-[#080B14] hover:bg-neutral-800/60 hover:border-neutral-700 text-neutral-300'
+                  )}
+                >
+                  <div className="min-w-0">
+                    <div className="font-bold text-xs text-white leading-tight break-words min-w-0">
+                      {model.name}
+                    </div>
+                    <div className="mt-1 shrink-0">
+                      <span
+                        className={cn(
+                          'inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded border leading-none',
+                          model.badgeColor
+                        )}
+                      >
+                        {model.badge}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-1.5 border-t border-neutral-800/80 flex items-center justify-between text-[10px] text-neutral-400 shrink-0 min-w-0">
+                    <span className="truncate">{model.defaultDuration} • {model.defaultFps}fps</span>
+                    <span className="font-semibold text-neutral-400 shrink-0 ml-1">{model.creditCost} credits</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Video Settings Card */}
+        <div className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-neutral-800/90 shadow-sm flex flex-col justify-between text-neutral-100 lg:h-full">
+          <div className="flex items-center justify-between mb-2 sm:mb-2.5 shrink-0">
+            <label className="text-xs sm:text-sm font-bold text-neutral-100 flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
+              Video Specifications & Dynamics
+            </label>
+            <span className="text-[11px] sm:text-xs font-mono text-neutral-400">
+              {resolution === '720p' ? '1280×720 HD' : '854×480 Draft'} • {aspectRatio}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+            {/* Duration */}
+            <div className="h-[108px] sm:h-[112px] p-2 rounded-xl border border-neutral-800 bg-[#080B14] flex flex-col justify-between">
+              <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Duration</div>
+              <div className="grid grid-cols-2 gap-1 my-auto">
+                {['3.0s', '5.0s'].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDuration(d)}
+                    className={cn(
+                      'py-1 px-1 rounded-lg text-xs font-semibold transition-all text-center cursor-pointer',
+                      duration === d
+                        ? 'bg-cyan-950/50 text-cyan-300 border border-cyan-800/60'
+                        : 'bg-neutral-900/60 text-neutral-400 hover:text-white border border-neutral-800'
+                    )}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+              <div className="text-[9px] text-neutral-500 truncate">{duration === '5.0s' ? '80 frames' : '48 frames'}</div>
+            </div>
+
+            {/* Resolution */}
+            <div className="h-[108px] sm:h-[112px] p-2 rounded-xl border border-neutral-800 bg-[#080B14] flex flex-col justify-between">
+              <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Resolution</div>
+              <div className="grid grid-cols-2 gap-1 my-auto">
+                {['720p', '480p'].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setResolution(r)}
+                    className={cn(
+                      'py-1 px-1 rounded-lg text-xs font-semibold transition-all text-center cursor-pointer',
+                      resolution === r
+                        ? 'bg-cyan-950/50 text-cyan-300 border border-cyan-800/60'
+                        : 'bg-neutral-900/60 text-neutral-400 hover:text-white border border-neutral-800'
+                    )}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <div className="text-[9px] text-neutral-500 truncate">{resolution === '720p' ? '1280×720' : '854×480'}</div>
+            </div>
+
+            {/* Aspect Ratio */}
+            <div className="h-[108px] sm:h-[112px] p-2 rounded-xl border border-neutral-800 bg-[#080B14] flex flex-col justify-between">
+              <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Aspect Ratio</div>
+              <div className="grid grid-cols-3 gap-1 my-auto">
+                {['16:9', '9:16', '1:1'].map((ratio) => (
+                  <button
+                    key={ratio}
+                    type="button"
+                    onClick={() => setAspectRatio(ratio)}
+                    className={cn(
+                      'py-1 px-0.5 rounded-lg text-[11px] font-semibold transition-all text-center cursor-pointer',
+                      aspectRatio === ratio
+                        ? 'bg-cyan-950/50 text-cyan-300 border border-cyan-800/60'
+                        : 'bg-neutral-900/60 text-neutral-400 hover:text-white border border-neutral-800'
+                    )}
+                  >
+                    {ratio}
+                  </button>
+                ))}
+              </div>
+              <div className="text-[9px] text-neutral-500 truncate">
+                {aspectRatio === '16:9' ? 'Cinema' : aspectRatio === '9:16' ? 'Vertical' : 'Square'}
+              </div>
+            </div>
+
+            {/* Camera Motion */}
+            <div className="h-[108px] sm:h-[112px] p-2 rounded-xl border border-neutral-800 bg-[#080B14] flex flex-col justify-between">
+              <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
+                <Camera className="w-2.5 h-2.5 text-cyan-400" />
+                Camera Motion
+              </div>
+              <div className="my-auto">
+                <select
+                  value={cameraMotion}
+                  onChange={(e) => setCameraMotion(e.target.value)}
+                  className="w-full rounded-lg px-2 py-1 text-xs bg-neutral-900 border border-neutral-700/80 text-neutral-200 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
+                >
+                  <option value="pan_right">Pan Right</option>
+                  <option value="pan_left">Pan Left</option>
+                  <option value="zoom_in">Dolly In</option>
+                  <option value="zoom_out">Dolly Out</option>
+                  <option value="crane_down">Crane Down</option>
+                  <option value="orbit">Orbit</option>
+                  <option value="static">Static Tripod</option>
+                </select>
+              </div>
+              <div className="text-[9px] text-neutral-500 truncate">Dynamics & Trajectory</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ROW 3: Generate Action Button (Centered, Disabled with Honest Coming Soon State) */}
+      <div className="flex flex-col items-center justify-center w-full py-1 gap-2">
+        <Button
+          variant="gradient"
+          size="md"
+          disabled={true}
+          leftIcon={Sparkles}
+          className="w-full sm:w-[280px] h-[46px] justify-center font-bold text-sm sm:text-base opacity-60 cursor-not-allowed rounded-xl shrink-0 border border-cyan-800/40"
+        >
+          Video Generation Coming Soon
+        </Button>
+        <p className="text-[11px] text-neutral-400 flex items-center gap-1.5">
+          <Lock className="w-3 h-3 text-neutral-400" />
+          Video synthesis is currently in active development. No credits will be charged.
+        </p>
+      </div>
+
+      {/* ROW 4: Studio Gallery / Recent Video Generations */}
+      <div className="bg-[#0D111C]/90 backdrop-blur-md rounded-2xl p-5 sm:p-6 border border-neutral-800/90 shadow-sm space-y-4 text-neutral-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-neutral-100 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-cyan-400" />
+              Recent Generations
+            </h2>
+            <p className="text-[11px] text-neutral-400 mt-0.5">
+              Saved video sequences and generation metadata from your account.
+            </p>
+          </div>
+          <span className="text-xs font-bold text-neutral-300 bg-neutral-800 px-2 py-0.5 rounded-full">
+            {videoHistory.length}
+          </span>
+        </div>
+
+        {/* Gallery Grid or Honest Empty State */}
+        {loadingRecent && videoHistory.length === 0 ? (
+          <div className="py-12 flex flex-col items-center justify-center text-center">
+            <RefreshCw className="w-6 h-6 text-cyan-400 animate-spin mb-2" />
+            <p className="text-xs text-neutral-400">Loading recent video generations…</p>
+          </div>
+        ) : videoHistory.length === 0 ? (
+          <div className="py-10 px-4 rounded-xl border border-dashed border-neutral-800 bg-[#080B14]/60 flex flex-col items-center justify-center text-center">
+            <div className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-500 mb-2.5">
+              <Film className="w-5 h-5 text-neutral-400" />
+            </div>
+            <p className="text-xs font-semibold text-neutral-200">Your recent video generations will appear here</p>
+            <p className="text-[11px] text-neutral-400 mt-1 max-w-xs leading-relaxed">
+              Once video generation goes live, your rendered video sequences and metadata will be saved here.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-3.5">
+            {videoHistory.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => setActiveModalItem(item)}
+                className="group relative aspect-video rounded-xl overflow-hidden border border-neutral-800 bg-[#080B14] cursor-pointer hover:border-cyan-500 hover:shadow-cyan-500/10 transition-all flex items-center justify-center"
+              >
+                <img
+                  src={item.thumbnail}
+                  alt={item.prompt}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-end text-white">
+                  <p className="text-[10px] font-medium line-clamp-1 text-neutral-200">{item.prompt}</p>
+                  <span className="text-[9px] text-cyan-300 font-mono mt-0.5">{item.duration} • {item.resolution}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Detail / Inspection Modal for real video assets */}
       {activeModalItem && (
         <Modal
           isOpen={!!activeModalItem}
@@ -1009,20 +711,33 @@ export function VideoGeneratorPage() {
           className="max-w-2xl bg-[#0D111C] text-neutral-100 border-neutral-800"
         >
           <div className="space-y-4">
+            {/* Video / Poster Box */}
             <div className="rounded-xl overflow-hidden border border-neutral-800 bg-[#080B14] flex items-center justify-center max-h-96">
-              <img
-                src={activeModalItem.thumbnail}
-                alt={activeModalItem.title}
-                className="max-h-96 w-auto object-contain"
-              />
+              {activeModalItem.videoUrl && activeModalItem.videoUrl.endsWith('.mp4') ? (
+                <video
+                  src={activeModalItem.videoUrl}
+                  controls
+                  autoPlay
+                  loop
+                  className="max-h-96 w-full object-contain"
+                />
+              ) : (
+                <img
+                  src={activeModalItem.thumbnail}
+                  alt={activeModalItem.title}
+                  className="max-h-96 w-auto object-contain"
+                />
+              )}
             </div>
 
+            {/* Prompt description banner */}
             <div className="p-3.5 rounded-xl bg-[#080B14] border border-neutral-800 space-y-1.5">
               <div className="flex items-center justify-between text-xs font-semibold text-neutral-300">
                 <span>Motion Scene Prompt</span>
                 <button
+                  type="button"
                   onClick={() => handleCopyPrompt(activeModalItem.prompt)}
-                  className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-normal"
+                  className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-normal cursor-pointer"
                 >
                   {copiedNotification ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   {copiedNotification ? 'Copied' : 'Copy'}
@@ -1033,25 +748,27 @@ export function VideoGeneratorPage() {
               </p>
             </div>
 
+            {/* Parameter badges */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
               <div className="p-2.5 rounded-lg bg-[#080B14] border border-neutral-800">
                 <span className="text-neutral-400 block text-[10px] font-semibold uppercase">Model</span>
-                <span className="font-semibold text-white">{activeModalItem.model}</span>
+                <span className="font-semibold text-white truncate block">{activeModalItem.model}</span>
               </div>
               <div className="p-2.5 rounded-lg bg-[#080B14] border border-neutral-800">
                 <span className="text-neutral-400 block text-[10px] font-semibold uppercase">Resolution</span>
                 <span className="font-semibold text-white">{activeModalItem.resolution}</span>
               </div>
               <div className="p-2.5 rounded-lg bg-[#080B14] border border-neutral-800">
-                <span className="text-neutral-400 block text-[10px] font-semibold uppercase">Camera Motion</span>
-                <span className="font-semibold text-white">{activeModalItem.cameraMotion}</span>
+                <span className="text-neutral-400 block text-[10px] font-semibold uppercase">Duration</span>
+                <span className="font-semibold text-white">{activeModalItem.duration}</span>
               </div>
               <div className="p-2.5 rounded-lg bg-[#080B14] border border-neutral-800">
-                <span className="text-neutral-400 block text-[10px] font-semibold uppercase">Seed & Frames</span>
-                <span className="font-mono font-semibold text-cyan-300">{activeModalItem.seed} ({activeModalItem.duration})</span>
+                <span className="text-neutral-400 block text-[10px] font-semibold uppercase">Created</span>
+                <span className="text-neutral-300">{activeModalItem.timestamp}</span>
               </div>
             </div>
 
+            {/* Action buttons */}
             <div className="flex items-center justify-between pt-3 border-t border-neutral-800">
               <Button
                 variant="outline"
@@ -1075,14 +792,16 @@ export function VideoGeneratorPage() {
                 >
                   Close
                 </Button>
-                <a
-                  href={activeModalItem.thumbnail}
-                  download="kiaan-video-poster.jpg"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-cyan-500 to-violet-600 hover:from-cyan-400 hover:to-violet-500 text-white transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Download Poster
-                </a>
+                {activeModalItem.videoUrl && (
+                  <a
+                    href={activeModalItem.videoUrl}
+                    download="kiaan-video.mp4"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-cyan-500 to-violet-600 hover:from-cyan-400 hover:to-violet-500 text-white transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download
+                  </a>
+                )}
               </div>
             </div>
           </div>
